@@ -7,6 +7,8 @@ from sqlalchemy.future import select
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import status
 from app.core.security import create_access_token
+from app.core.security import get_current_user
+from app.db.models import User
 
 # new APIRouter instance for authentication
 router = APIRouter()
@@ -53,3 +55,11 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Async
     
     # access token (bearer) returned, exp after an hour
     return {"access_token": token, "token_type": "bearer"} # should be stored in the client
+
+@router.get("/current_user")
+async def read_current_user(current_user: User = Depends(get_current_user)):
+    return {
+        "email": current_user.email,
+        "id": str(current_user.id),
+        "created_at": current_user.created_at
+    }
