@@ -4,6 +4,9 @@ from app.db.database import AsyncSessionLocal
 from app.db.models import User
 from passlib.context import CryptContext
 from sqlalchemy.future import select
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import status
+from app.core.security import create_access_token
 
 # new APIRouter instance for authentication
 router = APIRouter()
@@ -35,3 +38,18 @@ async def register_user(email: str, password: str, db: AsyncSession = Depends(ge
     return {"message": "User registered successfully"}
 
 # TODO: add other exceptions and messages
+
+@router.post("/login")
+async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)): # declare API call dependencies
+    # query for user with email (username in OAuth2PasswordRequestForm)
+    result = await db.execute(select(User).where(User.email == form_data.username))
+    user = result.scalar_one_or_none()  # fetch 1 user or None
+
+    if not user or not pwd_context.verify(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    
+    # JWT access token for authenticated user
+    token = create_access_token(data={"sub": user.email})
+    
+    # access token (bearer) returned, exp after an hour
+    return {"access_token": token, "token_type": "bearer"} # should be stored in the client

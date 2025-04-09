@@ -13,3 +13,5 @@ email-validator
 redis
 aio_pika
 alembic
+python-jose[cryptography]
+python-multipart
