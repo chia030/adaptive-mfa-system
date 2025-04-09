@@ -12,3 +12,4 @@ pytest
 email-validator
 redis
 aio_pika
+alembic
