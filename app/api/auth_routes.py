@@ -11,6 +11,7 @@ from app.core.security import get_current_user
 from app.db.models import User
 from fastapi import Request
 from app.db.models import LoginAttempt
+from app.utils.geolocation import get_geolocation
 
 # new APIRouter instance for authentication
 router = APIRouter()
@@ -53,6 +54,7 @@ async def login_user(
     # gather login attempt data 
     ip = request.client.host
     user_agent = request.headers.get("user-agent")
+    geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
     success = False
     user = None
 
@@ -83,6 +85,9 @@ async def login_user(
         email=form_data.username,
         ip_address=ip,
         user_agent=user_agent,
+        country=geoloc.get("country_name"), # country_name = full name | country = country code
+        region=geoloc.get("region"),
+        city=geoloc.get("city"),
         was_successful=success
     )
     db.add(login_record)

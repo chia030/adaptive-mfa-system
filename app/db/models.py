@@ -28,6 +28,9 @@ class LoginAttempt(Base):
     email = Column(String)
     ip_address = Column(String)  # IP address from login attempt
     user_agent = Column(String)  # user browser or device
+    country = Column(String, nullable=True) # geolocation data from ipapi.co
+    region = Column(String, nullable=True) # geolocation data from ipapi.co
+    city = Column(String, nullable=True) # geolocation data from ipapi.co
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     was_successful = Column(Boolean)
     user = relationship("User", backref="login_attempts") # relationship to User, allows access to user and reverse access to login attempts
