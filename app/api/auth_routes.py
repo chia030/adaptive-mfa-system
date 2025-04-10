@@ -15,12 +15,16 @@ from app.utils.geolocation import get_geolocation
 from app.utils.risk import calculate_risk_score
 from datetime import datetime
 from fastapi import Header
+from app.utils.otp import generate_otp
+from app.core.redis import redis
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
 
 # password hashing context using Argon2
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+RISK_THRESHOLD = 50
 
 # get database session
 async def get_db():
@@ -49,43 +53,41 @@ async def register_user(email: str, password: str, db: AsyncSession = Depends(ge
 
 @router.post("/login")
 async def login_user(
-    # API call dependencies
     request: Request,  # request object to access client IP and user agent
-    form_data: OAuth2PasswordRequestForm = Depends(), 
-    db: AsyncSession = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
+    db: AsyncSession = Depends(get_db), # API call dependencies
     x_forwarded_for: str = Header(default=None) # for manual testing
 ):
     # gather login attempt data 
-    # ip = request.client.host
-    ip = x_forwarded_for or request.client.host # for manual testing
+    ip = x_forwarded_for or request.client.host # x_forwarded_for for testing (manual headers input)
     user_agent = request.headers.get("user-agent")
-    geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
     now = datetime.utcnow()
-    risk = await calculate_risk_score(db, form_data.username, ip, user_agent, now, geoloc.get("country_name"), geoloc.get("region"))
-    # init success and user
-    success = False
-    user = None
+    geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
 
     # query for user with email (username in OAuth2PasswordRequestForm)
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()  # fetch 1 user or None
-
-    """
-    prev:
-
-    if not user or not pwd_context.verify(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
-    # JWT access token for authenticated user
-    token = create_access_token(data={"sub": user.email})
-    """
+    # init success and token
+    success = False
+    token = None
 
+    # verify password
     if user and pwd_context.verify(form_data.password, user.hashed_password):
         success = True
-        # JWT access token for authenticated user
-        token = create_access_token(data={"sub": user.email})
-    else:
-        token = None
+    
+    # determine risk score
+    risk_score = await calculate_risk_score(
+        db, form_data.username, ip, user_agent, now, 
+        country=geoloc.get("country_name"), region=geoloc.get("region")
+    )
+
+    # if user and pwd_context.verify(form_data.password, user.hashed_password):
+    #     success = True
+    #     # JWT access token for authenticated user
+    #     token = create_access_token(data={"sub": user.email})
+    # else:
+    #     token = None
 
     # logging the attempt
     login_record = LoginAttempt(
@@ -98,7 +100,7 @@ async def login_user(
         city=geoloc.get("city"),
         timestamp=now,
         was_successful=success,
-        risk_score=risk,
+        risk_score=risk_score,
     )
     db.add(login_record)
     await db.commit() # commits the transaction
@@ -106,8 +108,25 @@ async def login_user(
     if not success:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
+    # high risk
+    if risk_score >= RISK_THRESHOLD:
+        # OTP request trigger
+        otp = generate_otp()
+        await redis.setex(f"otp:{form_data.username}", 300, otp) # store OTP in Redis with exp (cached)
+        print(f"\nOTP for {form_data.username}: {otp}\n")
+
+        return {
+            "message": "MFA required. OTP sent (check terminal)",
+            "risk_score": risk_score
+        }
+
+        # then call /mfa/verify-otp
+    
+    # low risk
+    token = create_access_token(data={"sub": user.email})
+    
     # access token (bearer) returned, exp after an hour
-    return {"access_token": token, "token_type": "bearer", "risk_score": risk} # should be stored in the client 
+    return {"access_token": token, "token_type": "bearer", "risk_score": risk_score} # should be stored in the client 
 
 @router.get("/current_user")
 async def read_current_user(current_user: User = Depends(get_current_user)):

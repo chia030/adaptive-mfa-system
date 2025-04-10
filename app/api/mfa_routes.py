@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from app.core.redis import redis
 from app.utils.otp import generate_otp
+from app.core.security import create_access_token
+from app.db.models import User
+from sqlalchemy.future import select
+from app.db.database import AsyncSessionLocal
 
 router = APIRouter(prefix="/mfa", tags=["MFA"]) # tags help documentation (Swagger)
 
@@ -24,4 +28,18 @@ async def verify_otp(email: str = Body(...), otp: str = Body(...)): # Body(...) 
     
     # delete OTP
     await redis.delete(f"otp:{email}")
-    return {"message": "OTP verified successfully"}
+
+    # issue JWT token
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        token = create_access_token(data={"sub": user.email})
+        return {
+            "message": "OTP verified successfully",
+            "access_token": token,
+            "token_type": "bearer"
+        }
