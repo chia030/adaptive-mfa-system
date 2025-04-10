@@ -17,6 +17,7 @@ from datetime import datetime
 from fastapi import Header
 from app.utils.otp import generate_otp
 from app.core.redis import redis
+from app.utils.email import send_otp_email
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -114,7 +115,12 @@ async def login_user(
         # OTP request trigger
         otp = generate_otp()
         await redis.setex(f"otp:{form_data.username}", 300, otp) # store OTP in Redis with exp (cached)
+
+        # print OTP in terminal
         print(f"\nOTP for {form_data.username}: {otp}\n")
+
+        # send OTP via email, commented out for now
+        # await send_otp_email(form_data.username, otp)
 
         return {
             "message": "MFA required. OTP sent (check terminal)",

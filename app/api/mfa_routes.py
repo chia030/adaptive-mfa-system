@@ -5,20 +5,25 @@ from app.core.security import create_access_token
 from app.db.models import User
 from sqlalchemy.future import select
 from app.db.database import AsyncSessionLocal
+from app.utils.email import send_otp_email
 
 router = APIRouter(prefix="/mfa", tags=["MFA"]) # tags help documentation (Swagger)
 
 OTP_EXPIRE_SECONDS = 300 # 5 minutes
 
+# not used for now, just for testing
 @router.post("/request-otp")
 async def request_otp(email: str = Body(...)):
     otp = generate_otp()
     await redis.setex(f"otp:{email}", OTP_EXPIRE_SECONDS, otp) # store OTP in Redis with exp (cached)
 
-    # just printing OTP for now, instead of sending via email
+    # print OTP in terminal
     print(f"\nOTP for {email}: {otp}\n")
 
-    return {"message": "OTP sent (check terminal)"}
+    # send OTP via email
+    await send_otp_email(email, otp)
+
+    return {"message": "OTP sent (check terminal and email)"}
 
 @router.post("/verify-otp")
 async def verify_otp(email: str = Body(...), otp: str = Body(...)): # Body(...) is just unspecified body
