@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 load_dotenv()
 
 # secret key loaded from the environment variable
-SECRET_KEY = os.getenv("SECRET_KEY", "supersusjwtkey") # fallback secret key in 2nd arg, used if the env variable is not set
+SECRET_KEY = os.getenv("SECRET_KEY") # fallback secret key in 2nd arg, used if the env variable is not set
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 # default expiration
 

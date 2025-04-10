@@ -1,0 +1,6 @@
+# exclude environment variables
+.env
+
+# exclude Python cache and vscode settings
+__pycache__/
+.vscode/
