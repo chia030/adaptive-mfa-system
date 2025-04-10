@@ -24,7 +24,8 @@ router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
 # password hashing context using Argon2
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
-RISK_THRESHOLD = 50
+# RISK_THRESHOLD = 50
+RISK_THRESHOLD = 1 # for testing
 
 # get database session
 async def get_db():

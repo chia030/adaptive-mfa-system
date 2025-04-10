@@ -37,7 +37,10 @@ async def verify_otp(email: str = Body(...), otp: str = Body(...)): # Body(...) 
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         
-        token = create_access_token(data={"sub": user.email})
+        # cache MFA flag for user
+        await redis.setex(f"mfa_verified:{user.email}", 600, "true") # exp after 10 min
+        
+        token = create_access_token(data={"sub": user.email, "mfa": True}) # token stores mfa flag
         return {
             "message": "OTP verified successfully",
             "access_token": token,

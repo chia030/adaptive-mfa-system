@@ -13,6 +13,7 @@ async def get_geolocation(ip_address: str) -> dict:
          > ^ <
         """)
         print("\n\n")
+        return {"country": "Unknown", "city": "Unknown", "region": "Unknown"} # not to waste (limited) ipapi calls
 
     try:
         async with httpx.AsyncClient() as client:
