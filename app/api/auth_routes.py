@@ -14,12 +14,12 @@ from app.db.models import LoginAttempt
 from app.utils.geolocation import get_geolocation
 
 # new APIRouter instance for authentication
-router = APIRouter()
+router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
 
 # password hashing context using Argon2
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
-# get a database session
+# get database session
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session

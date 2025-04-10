@@ -6,7 +6,7 @@ async def get_geolocation(ip_address: str) -> dict:
         ip_address = ""
 
         # silly nonsense
-        print("\n\nLocal device IP address detected. Hiii ♥ ♥ ♥\n")
+        print("\n\n♥ Local device IP address detected ♥\n")
         print(r"""
          /\_/\  
         ( o.o ) 

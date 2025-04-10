@@ -15,3 +15,4 @@ aio_pika
 alembic
 python-jose[cryptography]
 python-multipart
+asyncio_redis
