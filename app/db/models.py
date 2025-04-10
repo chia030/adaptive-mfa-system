@@ -5,6 +5,7 @@ import uuid
 import datetime
 from sqlalchemy import ForeignKey, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy import Integer
 
 # base class for declarative class definitions
 Base = declarative_base()
@@ -33,4 +34,5 @@ class LoginAttempt(Base):
     city = Column(String, nullable=True) # geolocation data from ipapi.co
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     was_successful = Column(Boolean)
+    risk_score = Column(Integer, nullable = True)
     user = relationship("User", backref="login_attempts") # relationship to User, allows access to user and reverse access to login attempts

@@ -19,10 +19,10 @@ async def get_geolocation(ip_address: str) -> dict:
             # GET request to the ipapi.co API to fetch geolocation data
             response = await client.get(f"https://ipapi.co/{ip_address}/json/")
             if response.status_code == 200:
-                print(f"Geolocation data fetched for IP: {ip_address}")
+                print(f"\nGeolocation data fetched for IP: {ip_address}\n")
                 return response.json()
             else:
-                print(f"Failed to fetch geolocation data for IP: {ip_address}, status code: {response.status_code}")
+                print(f"\nFailed to fetch geolocation data for IP: {ip_address}, status code: {response.status_code}\n")
                 """
                 From ipapi.co:
                 The returned HTTP header X-Rl contains the number of requests remaining in the current rate limit window. X-Ttl contains the seconds until the limit is reset.

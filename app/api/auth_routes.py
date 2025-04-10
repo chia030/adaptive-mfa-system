@@ -12,6 +12,9 @@ from app.db.models import User
 from fastapi import Request
 from app.db.models import LoginAttempt
 from app.utils.geolocation import get_geolocation
+from app.utils.risk import calculate_risk_score
+from datetime import datetime
+from fastapi import Header
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -49,12 +52,17 @@ async def login_user(
     # API call dependencies
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), 
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    x_forwarded_for: str = Header(default=None) # for manual testing
 ):
     # gather login attempt data 
-    ip = request.client.host
+    # ip = request.client.host
+    ip = x_forwarded_for or request.client.host # for manual testing
     user_agent = request.headers.get("user-agent")
     geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
+    now = datetime.utcnow()
+    risk = await calculate_risk_score(db, form_data.username, ip, user_agent, now, geoloc.get("country_name"), geoloc.get("region"))
+    # init success and user
     success = False
     user = None
 
@@ -88,7 +96,9 @@ async def login_user(
         country=geoloc.get("country_name"), # country_name = full name | country = country code
         region=geoloc.get("region"),
         city=geoloc.get("city"),
-        was_successful=success
+        timestamp=now,
+        was_successful=success,
+        risk_score=risk,
     )
     db.add(login_record)
     await db.commit() # commits the transaction
@@ -97,7 +107,7 @@ async def login_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
     # access token (bearer) returned, exp after an hour
-    return {"access_token": token, "token_type": "bearer"} # should be stored in the client 
+    return {"access_token": token, "token_type": "bearer", "risk_score": risk} # should be stored in the client 
 
 @router.get("/current_user")
 async def read_current_user(current_user: User = Depends(get_current_user)):
