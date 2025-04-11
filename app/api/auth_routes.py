@@ -20,6 +20,7 @@ from app.core.redis import redis
 from app.utils.email import send_otp_email
 from app.db.models import TrustedDevice
 from sqlalchemy import and_
+from app.core.redis import redis
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -28,7 +29,7 @@ router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # RISK_THRESHOLD = 50
-RISK_THRESHOLD = 1 # for testing
+RISK_THRESHOLD = 0 # for testing
 
 # get database session
 async def get_db():
@@ -55,8 +56,34 @@ async def register_user(email: str, password: str, db: AsyncSession = Depends(ge
 
 # TODO: add other exceptions and messages
 
+# simplest login route, used to test authorized routes in Swagger
 @router.post("/login")
 async def login_user(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
+    # query for user with email (username in OAuth2PasswordRequestForm)
+    result = await db.execute(select(User).where(User.email == form_data.username))
+    user = result.scalar_one_or_none()  # fetch 1 user or None
+
+        # init success and token
+    success = False
+    token = None
+
+    # verify password
+    if user and pwd_context.verify(form_data.password, user.hashed_password):
+        success = True
+
+    if not success:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    
+    token = create_access_token(data={"sub": user.email})
+    # access token (bearer) returned, exp after an hour
+    return {"access_token": token, "token_type": "bearer"}
+
+# actual login route that should be used in UI
+@router.post("/better-login")
+async def login_user_better(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
     db: AsyncSession = Depends(get_db), # API call dependencies
@@ -66,7 +93,7 @@ async def login_user(
     # gather login attempt data 
     ip = x_forwarded_for or request.client.host # x_forwarded_for for testing (manual headers input)
     user_agent = request.headers.get("user-agent")
-    now = datetime.utcnow()
+    login_attempt_time = datetime.utcnow()
     geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
 
     # query for user with email (username in OAuth2PasswordRequestForm)
@@ -82,29 +109,34 @@ async def login_user(
         success = True
 
     # check if device is trusted
-    trusted = await db.execute(
-        select(TrustedDevice).where(
-            and_(
-                TrustedDevice.user_id == user.id,
-                TrustedDevice.device_id == device_id,
-                TrustedDevice.expires_at > now
+    cache_key = f"trusted:{user.id}:{device_id}"
+    cached = await redis.get(cache_key)
+    if cached == "true":
+        is_trusted_device = True
+    else:
+        # fall back to db
+        trusted = await db.execute(
+            select(TrustedDevice).where(
+                and_(
+                    TrustedDevice.user_id == user.id,
+                    TrustedDevice.device_id == device_id,
+                    TrustedDevice.expires_at > datetime.utcnow()
+                )
             )
         )
-    )
-    is_trusted_device = trusted.scalar_one_or_none() is not None
+        trusted_device = trusted.scalar_one_or_none() # fetch 1 trusted device or None
+
+        # cache result if found
+        if trusted_device:
+            is_trusted_device = True
+            seconds_until_exp = int((trusted_device.expires_at - datetime.utcnow()).total_seconds()) # cache only for the remaining time until expiration
+            await redis.setex(cache_key, seconds_until_exp, "true")
     
     # determine risk score
     risk_score = await calculate_risk_score(
-        db, form_data.username, ip, user_agent, now, 
+        db, form_data.username, ip, user_agent, login_attempt_time, 
         country=geoloc.get("country_name"), region=geoloc.get("region")
     )
-
-    # if user and pwd_context.verify(form_data.password, user.hashed_password):
-    #     success = True
-    #     # JWT access token for authenticated user
-    #     token = create_access_token(data={"sub": user.email})
-    # else:
-    #     token = None
 
     # logging the attempt
     login_record = LoginAttempt(
@@ -115,7 +147,7 @@ async def login_user(
         country=geoloc.get("country_name"), # country_name = full name | country = country code
         region=geoloc.get("region"),
         city=geoloc.get("city"),
-        timestamp=now,
+        timestamp=login_attempt_time,
         was_successful=success,
         risk_score=risk_score,
     )
@@ -148,6 +180,8 @@ async def login_user(
             token = create_access_token(data={"sub": user.email})
     # access token (bearer) returned, exp after an hour
     return {"access_token": token, "token_type": "bearer", "risk_score": risk_score} # should be stored in the client 
+
+#TODO: this login route is becoming huge, move some logic elsewhere?
 
 @router.get("/current_user")
 async def read_current_user(current_user: User = Depends(get_current_user)):

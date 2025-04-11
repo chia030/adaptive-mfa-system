@@ -65,6 +65,9 @@ async def verify_otp(
         
         # cache MFA flag for user
         await redis.setex(f"mfa_verified:{user.email}", 600, "true") # exp after 10 min
+
+        # cache trusted device
+        await redis.setex(f"trusted:{user.id}:{device_id}", 60 * 60 * 24 * 30, "true") # exp after 30 days
         
         token = create_access_token(data={"sub": user.email, "mfa": True}) # token stores mfa flag
         return {
