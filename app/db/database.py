@@ -7,12 +7,12 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# SQLAlchemy engine with the database URL
-# `echo=True` enables logging of SQL statements for debugging
+# SQLAlchemy engine
+# `echo=True` logs SQL statements
 engine = create_async_engine(DATABASE_URL, echo=True)
 
-# sessionmaker factory for creating asynchronous database sessions
-# `expire_on_commit=False` ensures objects remain usable after a commit
+# sessionmaker factory asynchronous db sessions
+# `expire_on_commit=False` objects remain usable after commits
 AsyncSessionLocal = sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
 )

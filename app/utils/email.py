@@ -14,7 +14,7 @@ def load_template(path):
         return f.read()
 
 async def send_otp_email(to_email: str, otp: str):
-    html_content = load_template(TEMPLATE_PATH).replace("{{ otp }}", otp)
+    html_content = load_template(TEMPLATE_PATH).replace("{{ otp }}", otp) # replacing with actual OTP
 
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
@@ -26,7 +26,7 @@ async def send_otp_email(to_email: str, otp: str):
         "sender": {"name": "Adaptive MFA", "email": SENDER_EMAIL},
         "to": [{"email": to_email}],
         "subject": "Your MFA OTP Code",
-        "htmlContent": html_content
+        "htmlContent": html_content # using the template
     }
 
     async with httpx.AsyncClient() as client:
