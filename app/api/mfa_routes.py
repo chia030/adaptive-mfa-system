@@ -6,6 +6,7 @@ from app.db.models import User
 from sqlalchemy.future import select
 from app.db.database import AsyncSessionLocal
 from app.utils.email import send_otp_email
+from app.utils.sms import send_otp_sms
 
 router = APIRouter(prefix="/mfa", tags=["MFA"]) # tags help documentation (Swagger)
 
@@ -24,6 +25,20 @@ async def request_otp(email: str = Body(...)):
     await send_otp_email(email, otp)
 
     return {"message": "OTP sent (check terminal and email)"}
+
+# not used for now, just for testing
+@router.post("/request-otp-sms")
+async def request_otp_sms(to_number: str = Body(...)):
+    otp = generate_otp()
+    await redis.setex(f"otp:{to_number}", OTP_EXPIRE_SECONDS, otp) # store OTP in Redis with exp (cached)
+
+    # print OTP in terminal
+    print(f"\nOTP for {to_number}: {otp}\n")
+
+    # send OTP via SMS
+    await send_otp_sms(to_number, otp)
+
+    return {"message": "OTP sent (check terminal and phone)"}
 
 @router.post("/verify-otp")
 async def verify_otp(email: str = Body(...), otp: str = Body(...)): # Body(...) is just unspecified body

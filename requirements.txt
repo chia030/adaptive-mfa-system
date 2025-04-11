@@ -16,3 +16,4 @@ alembic
 python-jose[cryptography]
 python-multipart
 asyncio_redis
+twilio
