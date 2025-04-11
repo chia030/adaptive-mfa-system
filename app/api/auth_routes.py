@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import AsyncSessionLocal
 from app.db.models import User
@@ -18,6 +18,8 @@ from fastapi import Header
 from app.utils.otp import generate_otp
 from app.core.redis import redis
 from app.utils.email import send_otp_email
+from app.db.models import TrustedDevice
+from sqlalchemy import and_
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -58,6 +60,7 @@ async def login_user(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
     db: AsyncSession = Depends(get_db), # API call dependencies
+    device_id: str = Body(...), # device ID is manual input for now, won't be after fingerprinting is implemented
     x_forwarded_for: str = Header(default=None) # for manual testing
 ):
     # gather login attempt data 
@@ -77,6 +80,18 @@ async def login_user(
     # verify password
     if user and pwd_context.verify(form_data.password, user.hashed_password):
         success = True
+
+    # check if device is trusted
+    trusted = await db.execute(
+        select(TrustedDevice).where(
+            and_(
+                TrustedDevice.user_id == user.id,
+                TrustedDevice.device_id == device_id,
+                TrustedDevice.expires_at > now
+            )
+        )
+    )
+    is_trusted_device = trusted.scalar_one_or_none() is not None
     
     # determine risk score
     risk_score = await calculate_risk_score(
@@ -110,28 +125,27 @@ async def login_user(
     if not success:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
-    # high risk
-    if risk_score >= RISK_THRESHOLD:
-        # OTP request trigger
-        otp = generate_otp()
-        await redis.setex(f"otp:{form_data.username}", 300, otp) # store OTP in Redis with exp (cached)
+    if success:
+        # high risk
+        if risk_score >= RISK_THRESHOLD and not is_trusted_device:
+            # OTP request trigger
+            otp = generate_otp()
+            await redis.setex(f"otp:{form_data.username}", 300, otp) # store OTP in Redis with exp (cached)
 
-        # print OTP in terminal
-        print(f"\nOTP for {form_data.username}: {otp}\n")
+            # print OTP in terminal
+            print(f"\nOTP for {form_data.username}: {otp}\n")
 
-        # send OTP via email, commented out for now
-        # await send_otp_email(form_data.username, otp)
+            # send OTP via email, commented out for now
+            # await send_otp_email(form_data.username, otp)
 
-        return {
-            "message": "MFA required. OTP sent (check terminal)",
-            "risk_score": risk_score
-        }
-
-        # then call /mfa/verify-otp
-    
-    # low risk
-    token = create_access_token(data={"sub": user.email})
-    
+            return {
+                "message": "MFA required. OTP sent (check terminal)",
+                "risk_score": risk_score
+            }
+            # then call /mfa/verify-otp
+        else:
+            # low risk
+            token = create_access_token(data={"sub": user.email})
     # access token (bearer) returned, exp after an hour
     return {"access_token": token, "token_type": "bearer", "risk_score": risk_score} # should be stored in the client 
 

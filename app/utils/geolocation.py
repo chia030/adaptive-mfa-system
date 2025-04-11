@@ -30,6 +30,7 @@ async def get_geolocation(ip_address: str) -> dict:
                 Your implementation should always check the value of the X-Rl header, and if its is 0 you must not send any more requests for the duration of X-Ttl in seconds.
                 """
                 #TODO: print and check (at least) limit counter to avoid getting blocked, otherwise find alternatives
+                #TODO: switch to another geolocation API, this one sucks!
     except Exception:
         pass
 
