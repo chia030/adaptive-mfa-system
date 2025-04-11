@@ -1,12 +1,12 @@
 # exclude environment variables
 .env
 
-# exclude Python cache and vscode settings
-app/__pycache__/
-app/api/__pycache__/
-app/core/__pycache__/
-app/db/__pycache__/
-app/utils/__pycache__/
+# exclude Python cache
+__pycache__/
+*.pyc
+
+# exclude Alembic versions
+alembic/versions/*
 
 # exclude vscode settings
 .vscode/
