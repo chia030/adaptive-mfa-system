@@ -1,34 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Request, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import AsyncSessionLocal
-from app.db.models import User
+from app.db.models import User, LoginAttempt, TrustedDevice, OTPLog
 from passlib.context import CryptContext
 from sqlalchemy.future import select
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi import status
-from app.core.security import create_access_token
-from app.core.security import get_current_user
-from app.db.models import User
-from fastapi import Request
-from app.db.models import LoginAttempt
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from app.core.security import create_access_token, get_current_user, SECRET_KEY, ALGORITHM
 from app.utils.geolocation import get_geolocation
 from app.utils.risk import calculate_risk_score
 from datetime import datetime
-from fastapi import Header
 from app.utils.otp import generate_otp
 from app.core.redis import redis
 from app.utils.email import send_otp_email
-from app.db.models import TrustedDevice
 from sqlalchemy import and_
-from app.core.redis import redis
-from app.db.models import OTPLog
-
+import jwt
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
 
 # password hashing context using Argon2
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 # RISK_THRESHOLD = 50
 RISK_THRESHOLD = 0 # for testing
@@ -207,6 +200,29 @@ async def login_user_better(
     return {"access_token": token, "token_type": "bearer", "risk_score": risk_score} # should be stored in the client 
 
 #TODO: this login route is becoming huge, move some logic elsewhere?
+
+@router.post("/logout")
+async def logout(token: str = Depends(oauth2_scheme)):
+    # token is blacklisted in Redis at logout
+
+    # decode token to get expiration time
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing expiration information")
+        now_timestamp = datetime.utcnow().timestamp()
+        expires_in = exp_timestamp - now_timestamp
+        if expires_in <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token is already expired")
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+    # use token itself as key
+    blacklist_key = f"bl:{token}" # prefix bl: for blacklist
+    await redis.setex(blacklist_key, int(expires_in), "blacklisted") # store blacklisted token in cache
+
+    return {"message": "Successfully logged out."}
 
 @router.get("/current_user")
 async def read_current_user(current_user: User = Depends(get_current_user)):
