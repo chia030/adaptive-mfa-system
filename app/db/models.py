@@ -49,3 +49,13 @@ class TrustedDevice(Base):
     expires_at = Column(DateTime, nullable=False)
 
     user = relationship("User", backref="trusted_devices")  # relationship to User, access to user + reverse access to trusted devices
+
+class OTPLog(Base):
+    __tablename__ = "otp_logs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String, nullable=False)
+    method = Column(String, nullable=False) # email or sms
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    status = Column(String, default="requested") # requested/sent/failed/verified
+    error = Column(String, nullable=True) # log error messages

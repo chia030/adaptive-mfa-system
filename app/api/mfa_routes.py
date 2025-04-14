@@ -9,22 +9,53 @@ from app.utils.email import send_otp_email
 from app.db.models import TrustedDevice
 from datetime import timedelta, datetime
 from fastapi import Request
+from app.db.models import OTPLog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/mfa", tags=["MFA"]) # tags help documentation (Swagger)
 
 OTP_EXPIRE_SECONDS = 300 # 5 minutes
 
+# get database session
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
+
 # not used for now, just for testing
 @router.post("/request-otp")
-async def request_otp(email: str = Body(...)):
+async def request_otp(email: str = Body(...), db: AsyncSession = Depends(get_db)):
     otp = generate_otp()
-    await redis.setex(f"otp:{email}", OTP_EXPIRE_SECONDS, otp) # store OTP in Redis with exp (cached)
+    redis_key = f"otp:{email}"
+
+    await redis.setex(redis_key, OTP_EXPIRE_SECONDS, otp) # store OTP in Redis with exp (cached)
 
     # print OTP in terminal
     print(f"\nOTP for {email}: {otp}\n")
 
     # send OTP via email
-    await send_otp_email(email, otp)
+    # await send_otp_email(email, otp)
+
+    try:
+        await send_otp_email(email, otp)
+        send_status = "sent"
+        error_message = None
+    except Exception as e:
+        send_status = "failed-send"
+        error_message = str(e)
+
+    # log OTP request in db
+    otp_log = OTPLog(
+        email=email,
+        method="email",
+        status=send_status,
+        error=error_message,
+        timestamp=datetime.utcnow()
+    )
+    db.add(otp_log)
+    await db.commit()
+
+    if send_status != "sent":
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send OTP")
 
     return {"message": "OTP sent (check terminal and email)"}
 
@@ -33,10 +64,35 @@ async def verify_otp(
     request: Request, 
     email: str = Body(...), # Body(...) is just unspecified body
     device_id: str = Body(...), # device ID is manual input for now, won't be after fingerprinting is implemented
-    otp: str = Body(...)
+    otp: str = Body(...),
+    db: AsyncSession = Depends(get_db),
     ): 
     stored = await redis.get(f"otp:{email}") # check if OTP in cache
-    if not stored or stored != otp:
+
+    otp_status = "verified"
+    error_message = None
+    
+    # OTP expired or not in cache
+    if not stored:
+        otp_status = "not found"
+        error_message = "Unable to verify OTP: OTP not found in cache, could be expired"
+    # wrong OTP
+    elif stored !=otp:
+        otp_status = "invalid"
+        error_message = "Unable to verify OTP: OTP is invalid"
+    
+    # log OTP request in db
+    otp_log = OTPLog(
+        email=email,
+        method="email",
+        status=otp_status,
+        error=error_message,
+        timestamp=datetime.utcnow()
+    )
+    db.add(otp_log)
+    await db.commit()
+
+    if otp_status != "verified":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OTP")
     
     # delete OTP

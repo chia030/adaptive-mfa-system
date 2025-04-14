@@ -21,6 +21,8 @@ from app.utils.email import send_otp_email
 from app.db.models import TrustedDevice
 from sqlalchemy import and_
 from app.core.redis import redis
+from app.db.models import OTPLog
+
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -103,6 +105,7 @@ async def login_user_better(
     # init success and token
     success = False
     token = None
+    is_trusted_device = False
 
     # verify password
     if user and pwd_context.verify(form_data.password, user.hashed_password):
@@ -169,6 +172,28 @@ async def login_user_better(
 
             # send OTP via email, commented out for now
             # await send_otp_email(form_data.username, otp)
+
+            try:
+                await send_otp_email(form_data.username, otp)
+                send_status = "sent"
+                error_message = None
+            except Exception as e:
+                send_status = "failed-send"
+                error_message = str(e)
+
+            # log OTP request in db
+            otp_log = OTPLog(
+                email=form_data.username,
+                method="email",
+                status=send_status,
+                error=error_message,
+                timestamp=datetime.utcnow()
+            )
+            db.add(otp_log)
+            await db.commit()
+
+            if send_status != "sent":
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send OTP")
 
             return {
                 "message": "MFA required. OTP sent (check terminal)",
