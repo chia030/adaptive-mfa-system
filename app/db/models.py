@@ -17,6 +17,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    role = Column(String, nullable=False, default="user") # user or admin
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 #TODO: find a better alternative for datetime.utcnow()
