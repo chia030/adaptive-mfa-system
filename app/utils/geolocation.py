@@ -31,6 +31,7 @@ async def get_geolocation(ip_address: str) -> dict:
                 """
                 #TODO: print and check (at least) limit counter to avoid getting blocked, otherwise find alternatives
                 #TODO: switch to another geolocation API, this one sucks!
+                #TODO: maybe cache location data instead of calling the api for a previously used IP address
     except Exception:
         pass
 
