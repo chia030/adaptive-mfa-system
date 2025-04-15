@@ -10,9 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Set up allowed origins. Change "http://localhost:5000" to the URL and port your Svelte app uses.
+
 allowed_origins = [
-    "http://localhost:8080",  # Replace or add additional origins if needed
+    "http://localhost:8080",  # Svelte frontend runs on :8080
 ]
 
 app.add_middleware(

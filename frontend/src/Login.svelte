@@ -14,7 +14,10 @@
 
   let authenticated = false;
 	let mfaRequired = false;
+  let mfaPassed = false;
 	let availableMFAMethods = [];
+  let token = "";
+
 
   // generate device fingerprint at mount
   onMount(async () => {
@@ -63,9 +66,12 @@
           // MFA not required
           authenticated = true;
           mfaRequired = false;
+          mfaPassed = true;
           // save token
-          successMessage = 'Login successful! Token: ' + data.access_token;
+          token = data.access_token;
+          successMessage = 'Login successful! Token: ' + token;
           errorMessage = '';
+
         }
       } else {
         errorMessage = data.detail || "Login failed.";
@@ -75,7 +81,7 @@
       errorMessage = 'A network error occurred.';
     };
     // Dispatch a login event with credentials
-    dispatch('login', { username, password, device_id: fingerprint, authenticated, mfaRequired, availableMFAMethods });
+    dispatch('login', { username, password, device_id: fingerprint, authenticated, mfaRequired, mfaPassed, availableMFAMethods, token });
   }
 </script>
 
