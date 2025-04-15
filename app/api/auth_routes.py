@@ -61,7 +61,7 @@ async def login_user(
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()  # fetch 1 user or None
 
-        # init success and token
+    # init success and token
     success = False
     token = None
 
@@ -90,6 +90,8 @@ async def login_user_better(
     user_agent = request.headers.get("user-agent")
     login_attempt_time = datetime.utcnow()
     geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
+
+    print(f"\n\ndevice id: {device_id}\n\n")
 
     # query for user with email (username in OAuth2PasswordRequestForm)
     result = await db.execute(select(User).where(User.email == form_data.username))

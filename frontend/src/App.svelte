@@ -2,20 +2,19 @@
 import Login from './Login.svelte';
 	import MFASelection from './MFASelection.svelte';
 	
-	let authenticated = false;
-	let mfaRequired = false;
+	let isAuthenticated = false;
+	let isMfaRequired = false;
 	let mfaPassed = false;
-	let availableMFAMethods = [];
+	let thisAvailableMFAMethods = [];
 	
-	// Simulate a login process
+	// login process
 	function handleLogin(event) {
-	  // Here you’d call your backend API
-	  authenticated = true;
-	  mfaRequired = true;
-	  availableMFAMethods = [
-		{ id: 'sms', name: 'SMS OTP' },
-		{ id: 'email', name: 'Email OTP' }
-	  ];
+		event.preventDefault();
+		const { username, password, device_id, authenticated, mfaRequired, availableMFAMethods } = event.detail;
+		isAuthenticated = authenticated;
+		isMfaRequired = mfaRequired;
+		thisAvailableMFAMethods = availableMFAMethods || [ { id: 'sms', name: 'SMS OTP' }, { id: 'email', name: 'Email OTP' } ];
+
 	}
 	
 	// Simulate an MFA selection handling
@@ -26,10 +25,10 @@ import Login from './Login.svelte';
 </script>
 
 <main>
-	{#if !authenticated}
-	<Login on:login={handleLogin}/>
-	{:else if mfaRequired && !mfaPassed}
-		<MFASelection methods={availableMFAMethods} on:select={handleSelectMethod}/>
+	{#if !isAuthenticated}
+	<Login on:login={(event) => handleLogin(event)}/>
+	{:else if isMfaRequired && !mfaPassed}
+		<MFASelection methods={thisAvailableMFAMethods} on:select={handleSelectMethod}/>
 	{:else}
 		<h2>Welcome, you are now securely authenticated!</h2>
 	{/if} 
