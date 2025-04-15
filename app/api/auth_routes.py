@@ -82,7 +82,7 @@ async def login_user_better(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
     db: AsyncSession = Depends(get_db), # API call dependencies
-    device_id: str = Body(...), # device ID is manual input for now, won't be after fingerprinting is implemented
+    device_id: str = Body(...), # device ID
     x_forwarded_for: str = Header(default=None) # for manual testing
 ):
     # gather login attempt data 
@@ -165,9 +165,7 @@ async def login_user_better(
             # print OTP in terminal
             print(f"\nOTP for {form_data.username}: {otp}\n")
 
-            # send OTP via email, commented out for now
-            # await send_otp_email(form_data.username, otp)
-
+            # send OTP via email (maybe comment out during testing)
             try:
                 await send_otp_email(form_data.username, otp)
                 send_status = "sent"
