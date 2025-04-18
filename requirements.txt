@@ -17,3 +17,13 @@ python-jose[cryptography]
 python-multipart
 asyncio_redis
 jwt
+
+# data generation:
+# faker
+
+# ML model training
+pandas
+torch
+torchvision
+torchaudio
+scikit-learn
