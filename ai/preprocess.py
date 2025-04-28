@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, Normalizer
 
 FEATURE_NAMES = []
 
@@ -110,7 +110,7 @@ def load_and_preprocess(
     FEATURE_NAMES = feature_cols.copy()
     
     X = df[feature_cols].copy()
-    scaler = StandardScaler()
+    scaler = Normalizer()
     X_scaled = scaler.fit_transform(X)
 
     # train/test split into NumPy arrays for the model
@@ -133,3 +133,8 @@ def load_and_preprocess(
 
 # allow importing directly for single‑task risk regression
 X_train, X_test, y_train, y_test = load_and_preprocess()
+
+if __name__ == "__main__":
+    load_and_preprocess()
+    print('Size of X_train', X_train.shape, '\nSize of y_train:', y_train.shape)
+    print(X_train[:10])

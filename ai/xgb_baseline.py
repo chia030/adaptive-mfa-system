@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 # Load the same train/test data you use for the NN:
 X_train, X_test, y_train, y_test = load_and_preprocess()
 
-y_train = y_train * 100
-y_test  = y_test  * 100
+# y_train = y_train * 100
+# y_test  = y_test  * 100
 
 param_grid = {
   "max_depth": [3,5,7],

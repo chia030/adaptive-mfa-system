@@ -10,3 +10,8 @@ alembic/versions/*
 
 # exclude vscode settings
 .vscode/
+
+# exclude gigantic datasets (files too large)
+ai/rba-dataset.csv
+ai/rba-ds-sample.csv
+ai/rba-ds-sample-2.csv
