@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 import uuid
 import datetime
 from sqlalchemy import ForeignKey, Boolean
+from sqlalchemy import LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy import Integer
 
@@ -16,7 +17,9 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False) # remove to be replaced with SRP, keeping for now
+    srp_salt = Column(LargeBinary, nullable=False) # might go back to storing as HEX
+    srp_verifier = Column(LargeBinary, nullable=False)
     role = Column(String, nullable=False, default="user") # user or admin
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 

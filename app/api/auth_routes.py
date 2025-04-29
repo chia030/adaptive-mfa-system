@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import AsyncSessionLocal
 from app.db.models import User, LoginAttempt, TrustedDevice, OTPLog
 from passlib.context import CryptContext
-from sqlalchemy.future import select
+from sqlalchemy import select, delete
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from app.core.security import create_access_token, get_current_user, SECRET_KEY, ALGORITHM
 from app.utils.geolocation import get_geolocation
@@ -14,6 +14,9 @@ from app.core.redis import redis
 from app.utils.email import send_otp_email
 from sqlalchemy import and_
 import jwt
+import srp
+
+srp.rfc5054_enable()
 
 # new APIRouter instance for authentication
 router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
@@ -23,8 +26,8 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
-# RISK_THRESHOLD = 50
-RISK_THRESHOLD = 0 # for testing
+RISK_THRESHOLD = 50
+# RISK_THRESHOLD = 0 # for testing
 
 # get database session
 async def get_db():
@@ -41,13 +44,31 @@ async def register_user(email: str, password: str, db: AsyncSession = Depends(ge
     
     # password is hashed using the CryptContext instance
     hashed_password = pwd_context.hash(password)
+
+    # SRP salt & verifier
+    salt_bytes, verifier_bytes = srp.create_salted_verification_key(email, password, hash_alg=srp.SHA256, ng_type=srp.NG_2048)
+    # salt = salt_bytes.hex() # create string of hex from bytes object
+    # verifier = verifier_bytes.hex()
     
-    new_user = User(email=email, hashed_password=hashed_password)
+    new_user = User(email=email, hashed_password=hashed_password, srp_salt=salt_bytes, srp_verifier=verifier_bytes)
     
     db.add(new_user)
     await db.commit() # commits the transaction
     
-    return {"message": "User registered successfully"}
+    return {"message": "User registered successfully (with SRP)"}
+
+@router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_by_email(email: str, db: AsyncSession = Depends(get_db)):
+    # lookup user
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
+    if not user: # 404 if not found
+        raise HTTPException(status_code=404, detail=f"User with {email} not found")
+    # delete user
+    await db.execute(delete(User).where(User.email == email))
+    await db.commit()
+    # return 204
+    return
 
 # TODO: add other exceptions and messages
 

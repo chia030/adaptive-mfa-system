@@ -3,6 +3,7 @@ from app.api.auth_routes import router as auth_router
 from app.api.mfa_routes import router as mfa_router
 from app.api.trusted_routes import router as trusted_router
 from app.api.admin_routes import router as admin_router
+from app.api.srp_routes import router as srp_router
 from fastapi.middleware.cors import CORSMiddleware
 
 # Run with uvicorn app.main:app --reload
@@ -26,6 +27,7 @@ app.add_middleware(
 # ROUTES:
 app.include_router(auth_router) # AUTH
 app.include_router(mfa_router) # MFA
+app.include_router(srp_router) # SRP
 app.include_router(trusted_router) # TRUSTED DEVICES (list and revocation)
 app.include_router(admin_router) # ADMIN (dashboard)
 
