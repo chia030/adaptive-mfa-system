@@ -43,14 +43,7 @@ class LoginAttempted(BaseModel): # published by Auth Service after login attempt
 class RiskScored(BaseModel): # published by Risk Engine after computing risk
     user_id: Optional[str]
     email: EmailStr
-    ip_address: str
     device_id: str
-    user_agent: str
-    country: Optional[str] = None
-    region: Optional[str] = None
-    city: Optional[str] = None
-    timestamp: datetime
-    was_successful: bool
     risk_score: float # 0-100 or 0-1 normalized
 
 class MFACompleted(BaseModel): # published by MFA Handler after MFA challenge is completed

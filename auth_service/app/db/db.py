@@ -7,6 +7,8 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# TODO: create a different database for each service? or move this file to shared_lib (no, best to have separate db and shared cache?)
+
 # SQLAlchemy engine
 # `echo=True` logs SQL statements
 engine = create_async_engine(DATABASE_URL, echo=True)
