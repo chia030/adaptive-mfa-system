@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+asyncpg
+pydantic
+python-dotenv
+pika
+srp
+pyjwt
+python-jose[cryptography]
+jwt
+requests
+httpx
+# TODO: check the actual requirements for Auth Service specifically
