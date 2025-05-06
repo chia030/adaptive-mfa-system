@@ -1,5 +1,6 @@
 # exclude environment variables
 .env
+old.env
 
 # exclude Python cache
 __pycache__/
