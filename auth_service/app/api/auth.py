@@ -1,33 +1,34 @@
-import jwt
+from jose import jwt, JWTError
 import srp
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Body, Request, status, Header
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
-from passlib.context import CryptContext
-
 from auth_service.app.db.models import User
-from auth_service.app.utils.schemas import RegisterIn, LoginAttempted, ChangePasswordIn
-from auth_service.app.db.db import get_db
+from shared_lib.schemas.events import LoginAttempted
+from auth_service.app.utils.schemas import RegisterIn, ChangePasswordIn
+from shared_lib.utils.security import create_access_token, pwd_context
+from shared_lib.config.settings import settings
+from shared_lib.infrastructure.db import get_auth_db
+from shared_lib.infrastructure.cache import get_auth_redis
 from auth_service.app.utils.geolocation import get_geolocation
-from auth_service.app.core.security import create_access_token, get_current_user, SECRET_KEY, ALGORITHM
-from shared_lib.redis import redis
-from auth_service.app.core.events import publish_login_event
-
+from auth_service.app.core.auth_logic import create_access_token, get_current_user
+from auth_service.app.utils.events import publish_login_event
 
 srp.rfc5054_enable()
 
 # new APIRouter instance for authentication
-router = APIRouter(tags=["AUTH"]) # tags help documentation (Swagger)
+router = APIRouter()
 
-# password hashing context using Argon2
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+
+# redis
+redis = get_auth_redis()
 
 # POST /register => register a new user ======================================================================================
 @router.post("/register")
-async def register(data: RegisterIn, db: AsyncSession = Depends(get_db)):
+async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     # check if user already exists
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
@@ -52,7 +53,7 @@ async def register(data: RegisterIn, db: AsyncSession = Depends(get_db)):
 async def login_user(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
-    db: AsyncSession = Depends(get_db), # API call dependencies
+    db: AsyncSession = Depends(get_auth_db), # API call dependencies
     device_id: str = Body(...), # device ID
     x_forwarded_for: str = Header(default=None) # for manual testing
 ):
@@ -110,7 +111,7 @@ async def login_user(
 async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklisted in Redis at logout
     # decode token to get expiration time
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         exp_timestamp = payload.get("exp")
         if exp_timestamp is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing expiration information")
@@ -118,7 +119,7 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
         expires_in = exp_timestamp - now_timestamp
         if expires_in <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token is already expired")
-    except jwt.PyJWTError:
+    except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     
     # use token itself as key
@@ -129,7 +130,7 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
 
 # POST /change-password => change password for existing user ===================================================================
 @router.post("/change-password")
-async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depends(get_db)): # NOT SECURE as is :)
+async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
@@ -159,7 +160,7 @@ async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depend
 
 # DELETE /users/{user_email} => delete existing user ==========================================================================
 @router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(email: str, db: AsyncSession = Depends(get_db)): # NOT SECURE as is :)
+async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)

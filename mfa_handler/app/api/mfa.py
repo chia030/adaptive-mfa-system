@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from mfa_handler.app.utils.schemas import MFARequestIn, MFAVerifyIn
-from mfa_handler.app.mfa_logic import send_otp, verify_otp
+from mfa_handler.app.core.mfa_logic import send_otp, verify_otp
 
-router = APIRouter(prefix="/mfa", tags=["MFA"])
+router = APIRouter()
 
 @router.post("/request")
 async def mfa_request(data: MFARequestIn):

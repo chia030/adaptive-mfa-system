@@ -1,0 +1,1 @@
+# JSON logger setup
