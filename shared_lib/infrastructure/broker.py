@@ -57,3 +57,10 @@ class RabbitBroker:
         )
         # enter consuming loop
         chan.start_consuming()
+
+    @classmethod
+    def stop(cls):
+        conn = cls.get_connection()
+        chan = conn.channel()
+        chan.stop_consuming()
+        chan.close()

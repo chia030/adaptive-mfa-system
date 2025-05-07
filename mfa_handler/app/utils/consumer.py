@@ -12,7 +12,7 @@ def handle_risk_scored(chan, method, props, body):
 """
 Multiple instances of this service could consume from the same queue, each invoking the callback independently, allowing for scaling.
 """
-def start_consuming():
+def start_risk_consumer():
     RabbitBroker.consume(
         exchange='risk_events',
         routing_key='risk.scored',

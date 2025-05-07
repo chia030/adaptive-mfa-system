@@ -1,4 +1,3 @@
-import pika
 from sqlalchemy.ext.asyncio import AsyncSession
 from shared_lib.infrastructure.db import get_risk_db
 from shared_lib.schemas.events import LoginAttempted
@@ -21,7 +20,7 @@ def handle_login_attempted(chan, method, props, body):
     # publish scored event
     publish_risk_scored(evt, score)
 
-def start_consuming():
+def start_login_consumer():
     RabbitBroker.consume(
         exchange='auth_events',
         routing_key='login.attempted',
