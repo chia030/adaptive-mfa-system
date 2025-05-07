@@ -13,7 +13,7 @@ from shared_lib.config.settings import settings
 from shared_lib.infrastructure.db import get_auth_db
 from shared_lib.infrastructure.cache import get_auth_redis
 from auth_service.app.utils.geolocation import get_geolocation
-from auth_service.app.core.auth_logic import create_access_token, get_current_user
+from auth_service.app.core.auth_logic import create_access_token, get_current_user, get_user_by_email
 from auth_service.app.utils.events import publish_login_event
 
 srp.rfc5054_enable()
@@ -30,8 +30,7 @@ redis = get_auth_redis()
 @router.post("/register")
 async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     # check if user already exists
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
+    user = get_user_by_email(data.email)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -64,8 +63,7 @@ async def login_user(
     geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
 
     # query for user with email (username in OAuth2PasswordRequestForm)
-    result = await db.execute(select(User).where(User.email == form_data.username))
-    user = result.scalar_one_or_none()  # fetch 1 user or None
+    user = get_user_by_email(form_data.username)
     
     # init success and token
     success = False
@@ -132,8 +130,7 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
 @router.post("/change-password")
 async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
-    result = await db.execute(select(User).where(User.email == data.email))
-    user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
+    user = get_user_by_email(data.email)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {data.email} not found.")
     
@@ -162,8 +159,7 @@ async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depend
 @router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
+    user = get_user_by_email(email)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {email} not found.")
     
