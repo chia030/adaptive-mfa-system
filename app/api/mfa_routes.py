@@ -120,7 +120,7 @@ async def verify_otp(
         await db.commit()
         
         # cache MFA flag for user
-        await redis.setex(f"mfa_verified:{user.email}", 600, "true") # exp after 10 min
+        await redis.setex(f"mfa_verified:{user.email}", 600, "true") # exp after 10 min # this is not needed
 
         # cache trusted device
         await redis.setex(f"trusted:{user.id}:{device_id}", 60 * 60 * 24 * 30, "true") # exp after 30 days

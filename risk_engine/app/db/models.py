@@ -13,10 +13,11 @@ Base = declarative_base()
 # LoginAttempt model to record attempts and train the risk scoring sys
 class LoginAttempt(Base):
     __tablename__ = "login_attempts"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # fk linking to the User table
+    event_id = Column(UUID(as_uuid=True), unique=True, primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
     email = Column(String)
     ip_address = Column(String)  # IP address from login attempt
+    device_id = Column(String) # device fingerprint
     user_agent = Column(String)  # user browser or device
     country = Column(String, nullable=True) # geolocation data from ipapi.co
     region = Column(String, nullable=True) # geolocation data from ipapi.co
@@ -24,7 +25,6 @@ class LoginAttempt(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     was_successful = Column(Boolean)
     risk_score = Column(Integer, nullable = True)
-    user = relationship("User", backref="login_attempts") # relationship to User, access to user + reverse access to login attempts
 
 # RiskModelMetadata model (after implementing ML model)
 # [...]

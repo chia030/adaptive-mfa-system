@@ -16,6 +16,11 @@ class ChangePasswordIn(BaseModel):
             raise ValueError("Passwords do not match")
         return v
 
+class MFAVerifyIn(BaseModel):
+    email: EmailStr
+    device_id: str # device fingerprint (same as in login)
+    otp: str
+
 class SRPStartIn(BaseModel):
     email: EmailStr
     A: str

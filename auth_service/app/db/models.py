@@ -13,7 +13,7 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False) # remove to be replaced with SRP, keeping for now
+    hashed_password = Column(String, nullable=False) # TODO: remove to be replaced with SRP, keeping for now
     srp_salt = Column(LargeBinary, nullable=False)
     srp_verifier = Column(LargeBinary, nullable=False)
     role = Column(String, nullable=False, default="user") # user or admin

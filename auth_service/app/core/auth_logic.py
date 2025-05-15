@@ -40,6 +40,12 @@ async def get_user_by_email(email: str, db: AsyncSession = Depends(get_auth_db))
     user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
     return user
 
+async def add_new_user(user: User, db: AsyncSession = Depends(get_auth_db)):
+    # add new user to db
+    db.add(user)
+    await db.commit()
+    return await get_user_by_email(user.email)
+
 # validate admin user    
 async def admin_required(current_user: User = Depends(get_current_user)):
     if current_user.role.lower() != "admin":
