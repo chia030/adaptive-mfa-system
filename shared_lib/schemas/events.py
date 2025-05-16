@@ -14,7 +14,7 @@ import uuid
 def create_event_id() -> str:
     return str(uuid.uuid4())
 
-class LoginAttempted(BaseModel): # published by Auth Service after login attempt (success or failure)
+class LoginAttempted(BaseModel): # published by Auth Service at login attempt (success or failure)
     event_id: UUID = Field(..., description="Unique ID for idempotency")
     user_id: Optional[UUID] = Field(None, description="UUID of the user if known/None for unknown usernames")
     email: EmailStr
@@ -32,7 +32,9 @@ class RiskScored(BaseModel): # published by Risk Engine after computing risk
     user_id: Optional[UUID]
     email: EmailStr
     # device_id: str # not needed here
-    risk_score: float # 0-100 or 0-1 normalized
+    # risk_score: float # 0-100 or 0-1 normalized
+    risk_score: int
+    timestamp: datetime
 
 class MFACompleted(BaseModel): # published by MFA Handler after MFA challenge is completed
     event_id: UUID = Field(..., description="Unique ID for idempotency")
@@ -40,4 +42,4 @@ class MFACompleted(BaseModel): # published by MFA Handler after MFA challenge is
     email: EmailStr
     timestamp: datetime
     was_successful: bool
-    mfa_method: str # might not be necessary since only email is available
+    # mfa_method: str # might not be necessary since only email is available

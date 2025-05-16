@@ -5,17 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared_lib.config.settings import settings
 from shared_lib.infrastructure.broker import RabbitBroker
 from auth_service.app.api.auth import router as auth_router
-from auth_service.app.utils.consumer import start_mfa_consumer
+# from auth_service.app.utils.consumer import start_mfa_consumer
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # startup code: launch consumer in a background thread (common use, alternative: multiprocessing)
-    threading.Thread(target=start_mfa_consumer, daemon=True).start()
-    yield
-    # shutdown: close connections
-    RabbitBroker.stop()
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # startup code: launch consumer in a background thread (common use, alternative: multiprocessing)
+#     threading.Thread(target=start_mfa_consumer, daemon=True).start()
+#     yield
+#     # shutdown: close connections
+#     RabbitBroker.stop()
 
-app = FastAPI(title="Auth Service", lifespan=lifespan)
+# app = FastAPI(title="Auth Service", lifespan=lifespan)
+app = FastAPI(title="Auth Service")
 
 app.add_middleware(
     CORSMiddleware,

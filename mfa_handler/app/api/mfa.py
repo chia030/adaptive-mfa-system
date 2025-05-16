@@ -1,10 +1,12 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from shared_lib.infrastructure.db import get_mfa_db
-from shared_lib.schemas.events import RiskScored
+from shared_lib.schemas.events import MFACompleted
 from shared_lib.schemas.api import RequestMFACheck, RespondMFACheckData, RespondMFACheck, RequestMFAVerify
 from mfa_handler.app.utils.schemas import MFARequestIn
+from mfa_handler.app.utils.events import publish_mfa_completed
 from mfa_handler.app.core.mfa_logic import send_otp, verify_otp, is_trusted, set_trusted
 
 router = APIRouter()
@@ -37,7 +39,7 @@ async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db
     status_code = 202 if mfa_required else 200
     return JSONResponse(
         status_code=status_code,
-        content=response.model_dump()
+        content=response.model_dump_json()
     )
 
 @router.post("/request")
@@ -52,16 +54,30 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
         email=data.email,
         otp=data.otp
         ) # check cache
+    
+    evt = MFACompleted(
+        **data,
+        timestamp=datetime.utcnow().isoformat(),
+        was_successful=False
+    )
+
     if not stored:
+        publish_mfa_completed(evt)
         raise HTTPException(status_code=404, detail="OTP not found, could be expired.")
     elif stored["otp"] != data.otp:
+        publish_mfa_completed(evt)
         raise HTTPException(status_code=401, detail="Unauthorized: OTP mismatch.")
     elif stored["event_id"] != data.event_id:
+        publish_mfa_completed(evt)
         raise HTTPException(status_code=502, detail="Event ID mismatch.") # TODO: maybe just return this with the details, it's not that important
     elif stored["device_id"] != data.device_id:
+        publish_mfa_completed(evt)
         raise HTTPException(status_code=401, detail="Unauthorized: device fingerprint mismatch.")
     
     # else (all matching)
+    evt.was_successful = True
+    publish_mfa_completed(evt)
+
     device_saved = await set_trusted(
         db=db,
         user_id=data.user_id,

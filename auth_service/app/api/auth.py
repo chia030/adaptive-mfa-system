@@ -7,8 +7,8 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
 from auth_service.app.db.models import User
-from shared_lib.schemas.events import LoginAttempted, create_event_id, RiskScored
-from shared_lib.schemas.api import RequestRiskScore, RespondRiskScore, RequestMFACheck, RespondMFACheck, RequestMFAVerify, RespondMFAVerify
+from shared_lib.schemas.events import LoginAttempted, create_event_id
+from shared_lib.schemas.api import RespondRiskScore, RequestMFACheck, RespondMFACheck, RequestMFAVerify
 from auth_service.app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
 from shared_lib.utils.security import create_access_token, pwd_context
 from shared_lib.config.settings import settings
@@ -105,7 +105,7 @@ async def login_user(
     # call risk engine synchronously -> calculate Risk Score
     risk_r = await client.post(
         f"{settings.risk_engine_url}/risk/predict",
-        json=login_evt.model_dump()
+        json=login_evt.model_dump_json()
     )
     if risk_r.status_code != 200:
         raise HTTPException(status_code=502, detail="Risk Engine unavailable")
@@ -130,10 +130,10 @@ async def login_user(
     # call MFA Handler synchronously to decide/challenge
     mfa_r = await client.post(
         f"{settings.mfa_handler_url}/mfa/check",
-        json=risk_evt.model_dump()
+        json=risk_evt.model_dump_json()
     )
  
-    # publish login event to Risk Engine (for log)
+    # publish login event to MQ (for log)
     publish_login_event(login_evt) # just in case
 
     # => if(MFA) return "MFA Required: OTP sent via email." then go to /auth/verify-otp
@@ -182,7 +182,7 @@ async def verify_otp(request: Request, data: MFAVerifyIn):
 
     resp = await client.post(
         f"{settings.mfa_handler_url}/mfa/verify",
-        json=verify_evt.model_dump()
+        json=verify_evt.model_dump_json()
     )
     if resp.status_code == 401:
         raise HTTPException(401, "Invalid code")
