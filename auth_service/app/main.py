@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from shared_lib.config.settings import settings
 # from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.auth import router as auth_router
+from app.api.db import router as auth_db_router
 # from auth_service.app.utils.consumer import start_mfa_consumer
 # == CONSUMER
 # @asynccontextmanager
@@ -33,6 +34,7 @@ app.add_middleware(
 
 # ROUTES:
 app.include_router(auth_router, prefix="/auth", tags=["AUTH"]) # AUTH
+app.include_router(auth_db_router, tags=["DB"])
 # tags help documentation (Swagger)
 
 @app.get("/")

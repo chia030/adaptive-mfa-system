@@ -7,7 +7,7 @@ import datetime
 # base class for declarative class definitions
 Base = declarative_base()
 
-# TODO: removed fk to User table => DB constraints are replaced by eventual consistency and domain events in Database-Per-Service pattern
+# DB constraints are replaced by eventual consistency and domain events in Database-Per-Service pattern
 
 # LoginAttempt model to record attempts and train the risk scoring sys
 class LoginAttempt(Base):

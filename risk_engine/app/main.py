@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from shared_lib.config.settings import settings
 from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.risk import router as risk_router
+from app.api.db import router as risk_db_router
 from app.utils.consumer import start_login_consumer
 
 @asynccontextmanager
@@ -27,12 +28,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=False, # MFA decisions don't require cookies in browser
-    allow_methods=["POST"],
-    # allow_methods=["*"],
+    # allow_methods=["POST"],
+    allow_methods=["*"],
     allow_headers=["*"]
 )
 
 app.include_router(risk_router, prefix="/risk", tags=["risk"])
+app.include_router(risk_db_router, tags=["DB"])
 
 @app.get("/")
 def root():

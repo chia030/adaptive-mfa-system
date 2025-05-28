@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from shared_lib.config.settings import settings
 from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.mfa import router as mfa_router
+from app.api.db import router as mfa_db_router
 # from mfa_handler.app.utils.consumer import start_risk_consumer
 
 # == CONSUMER
@@ -28,13 +29,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # List of allowed (browser) origins
     allow_credentials=True,
-    allow_methods=["POST"], # Allow POST only
-    # allow_methods=["*"],
+    # allow_methods=["POST"], # Allow POST only
+    allow_methods=["*"],
     allow_headers=["*"], # Allow all headers
 )
 
 # ROUTES:
 app.include_router(mfa_router, prefix="/mfa", tags=["MFA"]) # MFA
+app.include_router(mfa_db_router, tags=["DB"])
 
 @app.get("/")
 def root():
