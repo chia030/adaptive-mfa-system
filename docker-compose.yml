@@ -1,36 +1,174 @@
-version: "3.8"
+networks:
+  mfasys-net:
+    driver: bridge
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: mfasys-postgres
-    restart: always
-    environment:
-      POSTGRES_USER: mfasys_user
-      POSTGRES_PASSWORD: 123password!
-      POSTGRES_DB: mfasys_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
 
-  redis:
-    image: redis:7
-    container_name: mfasys-redis
-    restart: always
-    ports:
-      - "6379:6379"
-
+# MESSAGE BROKER (SHARED)
+# ==============================================================================
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: mfasys-rabbitmq
-    restart: always
+    container_name: rabbitmq
+    # restart: always
     ports:
-      - "5672:5672"    # Messaging port
-      - "15672:15672"  # Management dashboard
+      - "${RABBITMQ_MESSAGING_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_DASHBOARD_PORT}:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: mfasys_user
-      RABBITMQ_DEFAULT_PASS: 123password!
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    networks:
+      - mfasys-net
+
+# AUTH-SERVICE & DEPENDENCIES
+# ==============================================================================
+  auth-postgres:
+    image: postgres:15
+    container_name: auth-postgres
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD}
+      POSTGRES_DB: authdb
+    ports:
+      - 5432:${POSTGRES_DEFAULT_PORT}
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - mfasys-net
+
+  auth-redis:
+    image: redis:7-alpine
+    container_name: auth-redis
+    command: ["redis-server", "--requirepass", "${AUTH_REDIS_PASSWORD}"]
+    # restart: always
+    ports:
+      - "${AUTH_REDIS_DOCKER_HOST_PORT}:${REDIS_DEFAULT_CONTAINER_PORT}"
+    networks:
+      - mfasys-net
+
+  auth-service:
+    # build: ./auth_service
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: auth_service/Dockerfile
+    container_name: auth-service
+    depends_on:
+      - auth-postgres
+      - auth-redis
+      - rabbitmq
+    # environment:
+      # DATABASE_URL: ${AUTH_DB_URL}
+      # DATABASE_URL_SYNC: ${AUTH_DB_URL_SYNC}
+      # REDIS_URL: ${AUTH_REDIS_URL}
+      # RABBITMQ_URL: ${RABBITMQ_URL}
+      # SECRET_KEY: ${JWT_SECRET_KEY}
+      # ALGORITHM: ${JWT_ALGORITHM}
+    ports: 
+      - "${AUTH_SERVICE_PORT}:8000"
+    networks:
+      - mfasys-net
+
+# RISK ENGINE & DEPENDENCIES
+# ==============================================================================
+  risk-postgres:
+    image: postgres:15
+    container_name: risk-postgres
+    environment:
+      POSTGRES_USER: ${RISK_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${RISK_POSTGRES_PASSWORD}
+      POSTGRES_DB: riskdb
+    ports:
+      - 5433:${POSTGRES_DEFAULT_PORT}
+    volumes:
+      - risk-db-data:/var/lib/postgresql/data
+    networks:
+      - mfasys-net
+  
+  risk-redis:
+    image: redis:7-alpine
+    container_name: risk-redis
+    command: ["redis-server", "--requirepass", "${RISK_REDIS_PASSWORD}"]
+    # restart: always
+    ports:
+      - "${RISK_REDIS_DOCKER_HOST_PORT}:${REDIS_DEFAULT_CONTAINER_PORT}"
+    networks:
+      - mfasys-net
+
+  risk-engine:
+    # build: ./risk_engine
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: risk_engine/Dockerfile
+    container_name: risk-engine
+    depends_on:
+      - risk-postgres
+      - risk-redis
+      - rabbitmq
+    # environment:
+      # DATABASE_URL: ${RISK_DB_URL}
+      # DATABASE_URL_SYNC: ${RISK_DB_URL_SYNC}
+      # REDIS_URL: ${RISK_REDIS_URL}
+      # RABBITMQ_URL: ${RABBITMQ_URL}
+      # MODEL_PATH: /app/models/risk_model.json
+    ports:
+      - "${RISK_ENGINE_PORT}:8001"
+    networks:
+      - mfasys-net
+    
+# MFA-HANDLER & DEPENDENCIES
+# ==============================================================================
+  mfa-postgres:
+    image: postgres:15
+    container_name: mfa-postgres
+    environment:
+      POSTGRES_USER: ${MFA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${MFA_POSTGRES_PASSWORD}
+      POSTGRES_DB: mfadb
+    ports:
+      - 5434:${POSTGRES_DEFAULT_PORT}
+    volumes:
+      - mfa-db-data:/var/lib/postgresql/data
+    networks:
+      - mfasys-net
+
+  mfa-redis:
+    image: redis:7-alpine
+    container_name: mfa-redis
+    command: ["redis-server", "--requirepass", "${MFA_REDIS_PASSWORD}"]
+    # restart: always
+    ports:
+      - "${MFA_REDIS_DOCKER_HOST_PORT}:${REDIS_DEFAULT_CONTAINER_PORT}"
+    networks:
+      - mfasys-net
+
+  mfa-handler:
+    # build: ./mfa_handler
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: mfa_handler/Dockerfile
+    container_name: mfa-handler
+    depends_on:
+      - mfa-postgres
+      - mfa-redis
+      - rabbitmq
+    # environment:
+      # DATABASE_URL: ${MFA_DB_URL}
+      # DATABASE_URL_SYNC: ${MFA_DB_URL_SYNC}
+      # REDIS_URL: ${MFA_REDIS_URL}
+      # RABBITMQ_URL: ${RABBITMQ_URL}
+      # EMAIL_API_KEY: ${EMAIL_API_KEY}
+      # EMAIL_SENDER: ${EMAIL_SENDER}
+    ports:
+      - "${MFA_HANDLER_PORT}:8002"
+    networks:
+      - mfasys-net
 
 volumes:
-  pgdata:
+  auth-db-data:
+  risk-db-data:
+  mfa-db-data:

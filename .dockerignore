@@ -1,0 +1,11 @@
+.vscode/
+ai/
+alembic/
+skull_emoji/
+tests/
+venv/
+alembic.ini
+installed.txt
+old-docker-compose.yml
+old.env
+old.env.example

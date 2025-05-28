@@ -1,6 +1,5 @@
 # exclude environment variables
 .env
-old.env
 
 # exclude Python cache
 __pycache__/
@@ -11,3 +10,7 @@ alembic/versions/*
 
 # exclude vscode settings
 .vscode/
+
+# exclude old requirement files
+installed.txt
+old_requirements.txt

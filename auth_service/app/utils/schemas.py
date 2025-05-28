@@ -19,7 +19,7 @@ class ChangePasswordIn(BaseModel):
 class MFAVerifyIn(BaseModel):
     email: EmailStr
     device_id: str # device fingerprint (same as in login)
-    otp: str
+    otp: int
 
 class SRPStartIn(BaseModel):
     email: EmailStr

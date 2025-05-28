@@ -1,6 +1,6 @@
-from shared_lib.schemas.events import RiskScored
-from shared_lib.infrastructure.broker import RabbitBroker
-# from mfa_handler.app.core.mfa_logic import trigger_mfa
+# from shared_lib.schemas.events import RiskScored
+# from shared_lib.infrastructure.broker import RabbitBroker
+# from app.core.mfa_logic import trigger_mfa
 
 # callback
 # def handle_risk_scored(chan, method, props, body):

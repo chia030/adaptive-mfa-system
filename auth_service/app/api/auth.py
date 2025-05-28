@@ -6,18 +6,22 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
-from auth_service.app.db.models import User
+import httpx
+# import json
+from uuid import UUID
+
 from shared_lib.schemas.events import LoginAttempted, create_event_id
 from shared_lib.schemas.api import RespondRiskScore, RequestMFACheck, RespondMFACheck, RequestMFAVerify
-from auth_service.app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
 from shared_lib.utils.security import create_access_token, pwd_context
 from shared_lib.config.settings import settings
 from shared_lib.infrastructure.db import get_auth_db
 from shared_lib.infrastructure.cache import get_auth_redis
-from auth_service.app.utils.geolocation import get_geolocation
-from auth_service.app.core.auth_logic import create_access_token, get_current_user, get_user_by_email, add_new_user
-from auth_service.app.utils.events import publish_login_event
-from auth_service.app.utils.clients import get_http_client
+from app.db.models import User
+from app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
+from app.utils.geolocation import get_geolocation
+from app.core.auth_logic import get_current_user, get_user_by_email, add_new_user
+from app.utils.events import publish_login_event
+from app.utils.clients import get_http_client, get_risk_client, get_mfa_client
 
 srp.rfc5054_enable()
 
@@ -33,7 +37,7 @@ redis = get_auth_redis()
 @router.post("/register")
 async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     # check if user already exists
-    user = get_user_by_email(data.email)
+    user = await get_user_by_email(data.email, db)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -45,8 +49,11 @@ async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
 
     # add user to DB
     new_user = User(email=data.email, hashed_password=hashed_password, srp_salt=salt_bytes, srp_verifier=verifier_bytes)
-    if add_new_user(new_user) is None:
-        raise HTTPException(status_code=500, detail="Failed to register user")
+    # if add_new_user(new_user) is None:
+    #     raise HTTPException(status_code=500, detail="Failed to register user")
+    print(f">Registering new user: {data.email} with SRP.")
+    print(">New user data:", new_user)
+    await add_new_user(new_user, db)
 
     return {"message":"User registered successfully (with SRP)"}
 
@@ -56,26 +63,32 @@ async def login_user(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
     device_id: str = Body(...), # device ID collected from client
-    x_forwarded_for: str = Header(default=None) # for manual testing
+    x_forwarded_for: str = Header(default=None), # for manual testing
+    db: AsyncSession = Depends(get_auth_db), # DB session
+    risk_client = Depends(get_risk_client),
+    mfa_client = Depends(get_mfa_client)
 ):
     # gather login attempt data 
     ip = x_forwarded_for or request.client.host # x_forwarded_for for testing (manual headers input)
     user_agent = request.headers.get("user-agent")
     login_attempt_time = datetime.utcnow()
-    geoloc = await get_geolocation(ip)  # geolocation data from ipapi.co
+    geoloc: dict = await get_geolocation(ip)  # geolocation data from ipapi.co
 
     # init event
-    event_id = create_event_id()
+    event_id: UUID = create_event_id()
 
     # init success and token
     success = False
     token = None
 
+    print(f">Checking for user {form_data.username} in database.")
     # query for user with email (username in OAuth2PasswordRequestForm)
-    user: User | None = get_user_by_email(form_data.username)
-     
+    user: User | None = await get_user_by_email(form_data.username, db)
+    
+    print(">User found:", user) if user else print(">User not found.")
     # verify password
     if user and pwd_context.verify(form_data.password, user.hashed_password):
+        print(">Password verified.")
         success = True # TODO: make true only when SRP is verified
     
     # SRP Verify [...] TODO: add later
@@ -86,7 +99,6 @@ async def login_user(
         user_id=user.id if user else None,
         email=form_data.username,
         ip_address=ip,
-        # device_id=device_id, # not needed here anymore
         user_agent=user_agent,
         country=geoloc.get("country_name"), # country_name = full name | country = country code
         region=geoloc.get("region"),
@@ -97,26 +109,33 @@ async def login_user(
 
     # user not found or password invalid
     if not success:
+        print(">Login failed for user:", form_data.username)
         publish_login_event(login_evt)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
     
-    client = get_http_client()
 
+    print(">Requesting risk computation from Risk Engine.")
+    print(">Sending data:", login_evt)
+    
     # call risk engine synchronously -> calculate Risk Score
-    risk_r = await client.post(
-        f"{settings.risk_engine_url}/risk/predict",
-        json=login_evt.model_dump_json()
+    risk_r = await risk_client.post(
+        "/risk/predict",
+        json=login_evt.model_dump(mode="json")
     )
+
     if risk_r.status_code != 200:
         raise HTTPException(status_code=502, detail="Risk Engine unavailable")
-    
-    risk_response = RespondRiskScore.model_validate(risk_r.json())
+
+    # parse risk engine response
+    risk_response = RespondRiskScore.model_validate_json(risk_r.content)
+    print(">Response from Risk Engine:", f"'{risk_response.message}'", risk_r.status_code)
+    print(">Response content: ", f"'{risk_response.data}'")
+
     if risk_response.data.event_id != event_id:
         raise HTTPException(status_code=502, detail="Risk Engine event ID mismatch")
     
     risk_score = risk_response.data.risk_score
-    print(f"Risk Score: {risk_response.data.risk_score}")
-    print(f"Data persisted in DB: {risk_response.data.persisted}")
+    print(f">Risk Score for user {user.email}: {risk_score}") # just checking
 
     # risk scored data for MFA Handler
     risk_evt = RequestMFACheck(
@@ -127,10 +146,13 @@ async def login_user(
         risk_score=risk_score
     )
 
+    print(">Requesting MFA check from MFA Handler.")
+    print(">Sending data:", risk_evt)
+
     # call MFA Handler synchronously to decide/challenge
-    mfa_r = await client.post(
-        f"{settings.mfa_handler_url}/mfa/check",
-        json=risk_evt.model_dump_json()
+    mfa_r = await mfa_client.post(
+        "/mfa/check",
+        json=risk_evt.model_dump(mode="json")
     )
  
     # publish login event to MQ (for log)
@@ -138,8 +160,9 @@ async def login_user(
 
     # => if(MFA) return "MFA Required: OTP sent via email." then go to /auth/verify-otp
     if mfa_r.status_code == 202:
+        print(">MFA Required, storing event ID in cache for 5 minutes.")
         # cache event ID
-        redis.setex(f"mfa:{user.email}", 300, event_id) # store event ID in cache for 5 minutes
+        redis.setex(f"mfa:{user.email}", 300, str(event_id)) # store event ID in cache for 5 minutes
         return JSONResponse(
             status_code=202,
             content={"mfa_required": True, "message": "MFA Required; OTP sent via email. Complete authentication at /auth/verify-otp."}
@@ -147,28 +170,34 @@ async def login_user(
     elif mfa_r.status_code != 200:
         raise HTTPException(status_code=502, detail="MFA Handler error.")
     
-    mfa_response = RespondMFACheck.model_validate(mfa_r.json())
+    # parse mfa handler response
+    mfa_response = RespondMFACheck.model_validate_json(mfa_r.content)
+    print(">Response from MFA Handler:", f"'{mfa_response.message}'", mfa_r.status_code)
+    print(">Response content: ", f"'{mfa_response.data}'")
+    
     if mfa_response.data.event_id != event_id:
         raise HTTPException(status_code=502, detail="MFA Handler event ID mismatch")
     
     # otherwise... (low risk)
-    token = create_access_token(data={"sub":user.email})
+    print(">MFA not required, creating access token for user.")
+    token = create_access_token(subject=user.email) # create JWT token
 
     return {"message":"Logged in successfully.", "access_token": token, "token_type": "bearer"}
 
 # POST /verify_otp => request MFA verification from MFA Handler ===============================================================
 @router.post("/verify-otp") # sync call to MFA Handler
-async def verify_otp(request: Request, data: MFAVerifyIn):
+async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Depends(get_auth_db), mfa_client = Depends(get_mfa_client)):
 
-    user: User | None = get_user_by_email(data.email)
+    print(f">Checking for user {data.email} in database.")
+    user: User | None = await get_user_by_email(data.email, db)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
-    client = get_http_client()
     ip = request.client.host
     user_agent = request.headers.get("user-agent")
 
+    print(">Fetching event ID from cache.")
     # get event ID from cache
-    event_id = await redis.get(f"mfa:{user.email}")
+    event_id = redis.get(f"mfa:{user.email}")
 
     verify_evt = RequestMFAVerify(
         event_id=event_id,
@@ -179,18 +208,24 @@ async def verify_otp(request: Request, data: MFAVerifyIn):
         ip_address=ip,
         otp=data.otp
     )
-
-    resp = await client.post(
-        f"{settings.mfa_handler_url}/mfa/verify",
-        json=verify_evt.model_dump_json()
+    print(">Requesting MFA verification from MFA Handler.")
+    mfa_r = await mfa_client.post(
+    "/mfa/verify",
+    json=verify_evt.model_dump(mode="json")
     )
-    if resp.status_code == 401:
-        raise HTTPException(401, "Invalid code")
-    elif resp.status_code != 200:
+
+    if mfa_r.status_code == 401:
+        raise HTTPException(401, "Invalid code or different device ID. Please try again using the same device as the requesting device.")
+    elif mfa_r.status_code != 200:
         raise HTTPException(502, "MFA Handler error")
     
-    device_saved = resp["device_saved"] 
-    token = create_access_token(data={"sub":user.email})
+    mfa_response = mfa_r.json()
+    
+    print(">Response from MFA Handler:", f"'{mfa_response.get("message")}'", mfa_r.status_code)
+    # device_saved = mfa_r.content["device_saved"] 
+    device_saved = mfa_response.get("device_saved", False)  # default to False if not present
+    print(f">Trusted device was saved: {device_saved}.")
+    token = create_access_token(subject=user.email)
     return JSONResponse(
         status_code=200,
         content={
@@ -226,7 +261,7 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
 @router.post("/change-password")
 async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
-    user = get_user_by_email(data.email)
+    user = await get_user_by_email(data.email, db)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {data.email} not found.")
     
@@ -255,7 +290,7 @@ async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depend
 @router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
-    user = get_user_by_email(email)
+    user = await get_user_by_email(email, db)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {email} not found.")
     

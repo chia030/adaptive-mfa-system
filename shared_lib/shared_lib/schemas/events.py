@@ -11,8 +11,8 @@ import uuid
 # - publish_risk_scored(evt, score)
 # - publish_mfa_completed(email, success, method)
 
-def create_event_id() -> str:
-    return str(uuid.uuid4())
+def create_event_id() -> UUID:
+    return uuid.uuid4()
 
 class LoginAttempted(BaseModel): # published by Auth Service at login attempt (success or failure)
     event_id: UUID = Field(..., description="Unique ID for idempotency")
@@ -35,6 +35,8 @@ class RiskScored(BaseModel): # published by Risk Engine after computing risk
     # risk_score: float # 0-100 or 0-1 normalized
     risk_score: int
     timestamp: datetime
+    class Config:
+        from_attributes = True
 
 class MFACompleted(BaseModel): # published by MFA Handler after MFA challenge is completed
     event_id: UUID = Field(..., description="Unique ID for idempotency")

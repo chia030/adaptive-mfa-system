@@ -28,7 +28,7 @@ class RespondRiskScore(BaseModel):
 
 class RequestMFACheck(BaseModel):
     event_id: UUID = Field(..., description="Unique ID for idempotency")
-    user_id: str = Field(..., description="UUID of the user")
+    user_id: UUID = Field(..., description="User is authenticated at this point | UUID of the user")
     email: EmailStr
     device_id: str
     risk_score: int
@@ -43,9 +43,9 @@ class RespondMFACheck(BaseModel):
 
 class RequestMFAVerify(BaseModel):
     event_id: UUID = Field(..., description="Unique ID for idempotency")
-    user_id: str
+    user_id: UUID = Field(..., description="User is authenticated at this point | UUID of the user")
     email: EmailStr
     device_id: str
     user_agent: str
     ip_address: str
-    otp: str
+    otp: int

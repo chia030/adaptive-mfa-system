@@ -18,3 +18,6 @@ class User(Base):
     srp_verifier = Column(LargeBinary, nullable=False)
     role = Column(String, nullable=False, default="user") # user or admin
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    def __str__(self):
+        return f"User(id={self.id}, email={self.email}, role={self.role}, created_at={self.created_at})"

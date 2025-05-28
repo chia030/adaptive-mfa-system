@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from shared_lib.infrastructure.db import get_risk_db
 from shared_lib.schemas.events import LoginAttempted
-from risk_engine.app.db.models import LoginAttempt
+from app.db.models import LoginAttempt
 
 model = '' # could use XGBRegressor for now? 
 
@@ -15,9 +15,12 @@ model = '' # could use XGBRegressor for now?
 # save login attempt metadata to db
 async def persist_login_attempt(db: AsyncSession, evt: LoginAttempted, score: int):
 
+    print(f">Persisting login attempt in db for evt: '{evt.event_id}'.")
+
     login_attempt = LoginAttempt(
-        **evt, risk_score=score
+        **evt.model_dump(), risk_score=score
     )
+    print(">Login Attempt data:", login_attempt)
     # login_attempt = LoginAttempt(
     #     event_id=evt.event_id,
     #     user_id=evt.user_id,
@@ -38,13 +41,14 @@ async def persist_login_attempt(db: AsyncSession, evt: LoginAttempted, score: in
     existing_attempt = result.scalar_one_or_none()
 
     if existing_attempt:
-        print("Event already logged, skipping...")
-        return event_logged
+        print(">Event already logged, skipping...")
+        return event_logged, login_attempt
     
     try:
         db.add(login_attempt)
         await db.commit()
         event_logged = True
     except Exception as e:
-        print ("Failed to log event:", e) 
-    return event_logged
+        print (">Failed to log event:", e)
+
+    return event_logged, login_attempt

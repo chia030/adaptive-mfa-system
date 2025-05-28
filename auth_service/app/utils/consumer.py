@@ -1,7 +1,7 @@
-from shared_lib.infrastructure.broker import RabbitBroker
-from shared_lib.schemas.events import MFACompleted
-from shared_lib.utils.security import create_access_token
-from auth_service.app.core.auth_logic import get_user_by_email
+# from shared_lib.infrastructure.broker import RabbitBroker
+# from shared_lib.schemas.events import MFACompleted
+# from shared_lib.utils.security import create_access_token
+# from app.core.auth_logic import get_user_by_email
 
 # callback
 # def on_mfa_completed(chan, method, props, body):

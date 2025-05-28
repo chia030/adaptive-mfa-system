@@ -19,6 +19,9 @@ class TrustedDevice(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
+    def __str__(self):
+        return f"TrustedDevice(id={self.id}, user_id={self.user_id}, device_id={self.device_id}, user_agent={self.user_agent}, ip_address={self.ip_address}, created_at={self.created_at}, expires_at={self.expires_at})"
+
 # OTP log should be in the Risk DB perhaps, its only purpose is to train the ML model
 class OTPLog(Base):
     __tablename__ = "otp_logs"
@@ -29,3 +32,6 @@ class OTPLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     status = Column(String, default="requested") # requested/sent/failed/verified
     error = Column(String, nullable=True) # log error messages
+
+    def __str__(self):
+        return f"OTPLog(id={self.id}, event_id={self.event_id}, email={self.email}, timestamp={self.timestamp}, status={self.status}, error={self.error})"

@@ -2,7 +2,7 @@ import os
 import httpx
 from shared_lib.config.settings import settings
 
-BREVO_API_KEY = settings.email_api_key.get_secret_value()
+BREVO_API_KEY = settings.email_api_key
 SENDER_EMAIL = settings.email_sender
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "../templates/email_otp.html")

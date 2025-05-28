@@ -1,7 +1,6 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 import uuid
 import datetime
 
@@ -25,6 +24,9 @@ class LoginAttempt(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     was_successful = Column(Boolean)
     risk_score = Column(Integer, nullable = True)
+
+    def __str__(self):
+        return f"LoginAttempt(event_id={self.event_id}, user_id={self.user_id}, email={self.email}, ip_address={self.ip_address}, device_id={self.device_id}, user_agent={self.user_agent}, country={self.country}, region={self.region}, city={self.city}, timestamp={self.timestamp}, was_successful={self.was_successful}, risk_score={self.risk_score})"
 
 # RiskModelMetadata model (after implementing ML model)
 # [...]

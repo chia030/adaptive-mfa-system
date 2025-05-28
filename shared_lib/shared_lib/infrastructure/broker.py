@@ -6,11 +6,14 @@ from typing import Callable, Optional
 import pika.channel
 import pika.spec
 from shared_lib.config.settings import settings
+from pika import BasicProperties
 
 # singleton wrapper around a pika BlockingConnection
 class RabbitBroker:
     _lock = threading.Lock()
     _connection = None
+
+    
 
     @classmethod
     def get_connection(cls):
@@ -24,10 +27,14 @@ class RabbitBroker:
     
     @classmethod
     def publish(cls, exchange: str, routing_key: str, body: bytes, durable: bool = True):
-        conn = cls.get_connection()
+        props = BasicProperties(content_type="application/json", content_encoding="utf-8")
+        # conn = cls.get_connection()
+        # new connection for publishing to avoid conflicts
+        params = pika.URLParameters(settings.rabbitmq_url)
+        conn = pika.BlockingConnection(params)
         chan = conn.channel()
         chan.exchange_declare(exchange=exchange, exchange_type='topic', durable=durable)
-        chan.basic_publish(exchange, routing_key, body)
+        chan.basic_publish(exchange, routing_key, body, properties=props)
 
     @classmethod
     def consume(
@@ -46,6 +53,7 @@ class RabbitBroker:
         # declare or reuse a queue
         result = chan.queue_declare(queue=queue or "", durable=durable)
         queue_name = result.method.queue
+        
         chan.queue_bind(exchange=exchange, queue=queue_name, routing_key=routing_key)
         # QoS / prefetch
         chan.basic_qos(prefetch_count=prefetch_count)
@@ -55,6 +63,7 @@ class RabbitBroker:
             on_message_callback=on_message,
             auto_ack=auto_ack,
         )
+        print(f"[consumer] Will listen on queue: {queue_name!r}")
         # enter consuming loop
         chan.start_consuming()
 

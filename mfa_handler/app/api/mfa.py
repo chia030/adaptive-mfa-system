@@ -5,12 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared_lib.infrastructure.db import get_mfa_db
 from shared_lib.schemas.events import MFACompleted
 from shared_lib.schemas.api import RequestMFACheck, RespondMFACheckData, RespondMFACheck, RequestMFAVerify
-from mfa_handler.app.utils.schemas import MFARequestIn
-from mfa_handler.app.utils.events import publish_mfa_completed
-from mfa_handler.app.core.mfa_logic import send_otp, verify_otp, is_trusted, set_trusted
+from app.utils.schemas import MFARequestIn
+from app.utils.events import publish_mfa_completed
+from app.core.mfa_logic import send_otp, verify_otp, is_trusted, set_trusted
 
 router = APIRouter()
-RISK_THRESHOLD = 50 # risk score threshold for MFA trigger
+# RISK_THRESHOLD = 50 # risk score threshold for MFA trigger
+RISK_THRESHOLD = 0 # we testin
 
 @router.post("/check", response_model=RespondMFACheck)
 async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db)):
@@ -23,6 +24,7 @@ async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db
         )
     if not is_trusted_device and data.risk_score >= RISK_THRESHOLD:
         # if device is trusted, skip MFA
+        print(f">Device unknown and risk score >=50. Sending OTP via email to '{data.email}'.")
         mfa_required = True
         email_sent = await send_otp(
             db=db,
@@ -37,9 +39,11 @@ async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db
     resp_data = RespondMFACheckData(event_id=data.event_id, mfa_required=mfa_required)
     response = RespondMFACheck(message="MFA check completed.", data=resp_data)
     status_code = 202 if mfa_required else 200
+
+    print(f">Responding to Auth Service: {response}")
     return JSONResponse(
         status_code=status_code,
-        content=response.model_dump_json()
+        content=response.model_dump(mode="json")
     )
 
 @router.post("/request")
@@ -49,14 +53,16 @@ async def mfa_request(data: MFARequestIn):
 
 @router.post("/verify")
 async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_db)):
+    print(f">Checking cache for OTP with email={data.email}.")
     stored = await verify_otp(
         db=db,
         email=data.email,
-        otp=data.otp
+        otp=data.otp,
+        event_id=data.event_id
         ) # check cache
     
     evt = MFACompleted(
-        **data,
+        **data.model_dump(),
         timestamp=datetime.utcnow().isoformat(),
         was_successful=False
     )
@@ -64,15 +70,11 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
     if not stored:
         publish_mfa_completed(evt)
         raise HTTPException(status_code=404, detail="OTP not found, could be expired.")
-    elif stored["otp"] != data.otp:
+    elif stored["otp"] != data.otp or stored["device_id"] != data.device_id: # or works like and/or in python
         publish_mfa_completed(evt)
-        raise HTTPException(status_code=401, detail="Unauthorized: OTP mismatch.")
-    elif stored["event_id"] != data.event_id:
-        publish_mfa_completed(evt)
-        raise HTTPException(status_code=502, detail="Event ID mismatch.") # TODO: maybe just return this with the details, it's not that important
-    elif stored["device_id"] != data.device_id:
-        publish_mfa_completed(evt)
-        raise HTTPException(status_code=401, detail="Unauthorized: device fingerprint mismatch.")
+        raise HTTPException(status_code=401, detail="Unauthorized: OTP mismatch." if stored["otp"] != data.otp else "Unauthorized: device fingerprint mismatch.")
+    elif stored["event_id"] != data.event_id: 
+        print(">Event ID mismatch: internal bug.")
     
     # else (all matching)
     evt.was_successful = True
@@ -86,10 +88,14 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
         ip_address=data.ip_address
     ) # save trusted device for a month
 
-    return JSONResponse(
-        status_code=200,
-        content={
+    content = {
             "message": "MFA verified successfully.",
             "device_saved": device_saved
         }
+
+    print(f"Responding to Auth Service: 'status_code=200, content={content}'")
+
+    return JSONResponse(
+        status_code=200,
+        content=content
     )

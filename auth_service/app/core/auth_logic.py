@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from shared_lib.infrastructure.db import get_auth_db
 from shared_lib.infrastructure.cache import get_auth_redis
 from shared_lib.config.settings import settings
-from auth_service.app.db.models import User
+from app.db.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 redis = get_auth_redis()
@@ -35,16 +35,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     
     return user # should include current token
 
-async def get_user_by_email(email: str, db: AsyncSession = Depends(get_auth_db)):
+async def get_user_by_email(email: str, db: AsyncSession):
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none() # fetch 1 scalar value (None if not found, MultipleResultsFound exception if multiples)
     return user
 
-async def add_new_user(user: User, db: AsyncSession = Depends(get_auth_db)):
+async def add_new_user(user: User, db: AsyncSession):
     # add new user to db
     db.add(user)
     await db.commit()
-    return await get_user_by_email(user.email)
+    # return await get_user_by_email(user.email)
+    return
 
 # validate admin user    
 async def admin_required(current_user: User = Depends(get_current_user)):

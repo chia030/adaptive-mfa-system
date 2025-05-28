@@ -5,7 +5,7 @@ from typing import Optional
 from shared_lib.config.settings import settings
 from passlib.context import CryptContext
 
-JWT_SECRET_KEY = settings.jwt_secret_key.get_secret_value()
+JWT_SECRET_KEY = settings.jwt_secret_key
 JWT_ALGORITHM = settings.jwt_algorithm
 
 def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
