@@ -1,14 +1,12 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from shared_lib.config.settings import settings
 from shared_lib.schemas.events import RiskScored, LoginAttempted
 from shared_lib.schemas.api import RespondRiskScore, RespondRiskScoreData
 from shared_lib.infrastructure.db import get_risk_db
 from app.core.risk_logic import persist_login_attempt
 from app.core.dumb_risk import calculate_risk_score
-from app.db.models import LoginAttempt
 from app.utils.events import publish_risk_scored
 
 router = APIRouter()

@@ -5,9 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Request, status, He
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, update
-import httpx
-# import json
+from sqlalchemy import  delete, update
 from uuid import UUID
 
 from shared_lib.schemas.events import LoginAttempted, create_event_id
@@ -21,7 +19,7 @@ from app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
 from app.utils.geolocation import get_geolocation
 from app.core.auth_logic import get_current_user, get_user_by_email, add_new_user
 from app.utils.events import publish_login_event
-from app.utils.clients import get_http_client, get_risk_client, get_mfa_client
+from app.utils.clients import get_risk_client, get_mfa_client
 
 srp.rfc5054_enable()
 
@@ -287,8 +285,8 @@ async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depend
     return {"message":f"Password changed for {data.email}."}
 
 # DELETE /users/{user_email} => delete existing user ==========================================================================
-@router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
+@router.delete("/users/{email}")
+async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_client = Depends(get_mfa_client)): # NOT SECURE as is :)
     # lookup user
     user = await get_user_by_email(email, db)
     if not user: # 404 if not found
@@ -296,11 +294,17 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db)): # NO
     
     # TODO: validate current user (with get_current_user())
 
+    # delete user trusted devices
+    mfa_r = await mfa_client.delete(
+        f"/trusted/{user.id}"
+    )
+    print(mfa_r)
+    print(mfa_r.json())
     # delete user
-    await db.execute(delete(User).where(User.email == email))
+    result = await db.execute(delete(User).where(User.email == email))
     await db.commit()
-    # return 204
-    return
+    # TODO: delete all entries with user ID in Risk Engine & MFA Handler
+    return {"message": f"Deleted {result.rowcount} users."}
 
 # GET /current-user => return current active user ==============================================================================
 @router.get("/current-user")

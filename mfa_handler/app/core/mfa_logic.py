@@ -4,10 +4,8 @@ import json
 from sqlalchemy import select, and_
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from shared_lib.infrastructure.db import get_mfa_db
 from shared_lib.infrastructure.cache import get_mfa_redis
 from app.db.models import TrustedDevice, OTPLog
-from app.utils.events import publish_mfa_completed
 from app.utils.email import send_otp_email
 
 redis = get_mfa_redis()
@@ -145,6 +143,4 @@ async def verify_otp(db: AsyncSession, email, otp, event_id):
     # delete OTP
     redis.delete(f"otp:{email}")
 
-    # success = stored and stored == code
-    # publish_mfa_completed(email, success, method="otp")
     return stored

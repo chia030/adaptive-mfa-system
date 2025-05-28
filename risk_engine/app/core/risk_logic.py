@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from shared_lib.infrastructure.db import get_risk_db
 from shared_lib.schemas.events import LoginAttempted
 from app.db.models import LoginAttempt
 
@@ -21,19 +20,6 @@ async def persist_login_attempt(db: AsyncSession, evt: LoginAttempted, score: in
         **evt.model_dump(), risk_score=score
     )
     print(">Login Attempt data:", login_attempt)
-    # login_attempt = LoginAttempt(
-    #     event_id=evt.event_id,
-    #     user_id=evt.user_id,
-    #     email=evt.email,
-    #     ip_address=evt.ip_address,
-    #     user_agent=evt.user_agent,
-    #     country=evt.country,
-    #     region=evt.region,
-    #     city=evt.city,
-    #     timestamp=evt.timestamp,
-    #     was_successful=evt.was_successful,
-    #     risk_score=score,
-    # )
     event_logged = False
     result = await db.execute(select(LoginAttempt).where(
         LoginAttempt.event_id == login_attempt.event_id

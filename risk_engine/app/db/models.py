@@ -7,7 +7,7 @@ import datetime
 # base class for declarative class definitions
 Base = declarative_base()
 
-# TODO: remove fk to User table => DB constraints are replaced by eventual consistency and domain events in Database-Per-Service pattern
+# TODO: removed fk to User table => DB constraints are replaced by eventual consistency and domain events in Database-Per-Service pattern
 
 # LoginAttempt model to record attempts and train the risk scoring sys
 class LoginAttempt(Base):
@@ -16,7 +16,7 @@ class LoginAttempt(Base):
     user_id = Column(UUID(as_uuid=True), nullable=True)
     email = Column(String)
     ip_address = Column(String)  # IP address from login attempt
-    device_id = Column(String) # device fingerprint
+    device_id = Column(String) # device fingerprint # TODO: should be removed, it's irrelevant here?
     user_agent = Column(String)  # user browser or device
     country = Column(String, nullable=True) # geolocation data from ipapi.co
     region = Column(String, nullable=True) # geolocation data from ipapi.co
