@@ -7,6 +7,7 @@ from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.mfa import router as mfa_router
 # from mfa_handler.app.utils.consumer import start_risk_consumer
 
+# == CONSUMER
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
 #     # startup code: launch consumer in a background thread (common use, alternative: multiprocessing)
@@ -14,8 +15,9 @@ from app.api.mfa import router as mfa_router
 #     yield
 #     # shutdown: close connections
 #     RabbitBroker.stop()
-
 # app = FastAPI(title="MFA Handler", lifespan=lifespan)
+# ==
+
 app = FastAPI(title="MFA Handler")
 
 allowed_origins = [
