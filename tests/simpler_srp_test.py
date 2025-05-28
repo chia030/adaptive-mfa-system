@@ -1,4 +1,4 @@
-# testing the flow of SRP
+# testing the flow of SRP (both for client and server sides)
 
 import srp
 
