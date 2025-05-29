@@ -14,12 +14,12 @@ from shared_lib.utils.security import create_access_token, pwd_context
 from shared_lib.config.settings import settings
 from shared_lib.infrastructure.db import get_auth_db
 from shared_lib.infrastructure.cache import get_auth_redis
+from shared_lib.infrastructure.clients import get_risk_client, get_mfa_client
 from app.db.models import User
 from app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
 from app.utils.geolocation import get_geolocation
 from app.core.auth_logic import get_current_user, get_user_by_email, add_new_user
 from app.utils.events import publish_login_event
-from app.utils.clients import get_risk_client, get_mfa_client
 
 srp.rfc5054_enable()
 
@@ -180,7 +180,7 @@ async def login_user(
     print(">MFA not required, creating access token for user.")
     token = create_access_token(subject=user.email) # create JWT token
 
-    return {"message":"Logged in successfully.", "access_token": token, "token_type": "bearer"}
+    return {"mfa_required": False, "message":"Logged in successfully.", "access_token": token, "token_type": "bearer"}
 
 # POST /verify_otp => request MFA verification from MFA Handler ===============================================================
 @router.post("/verify-otp") # sync call to MFA Handler
@@ -197,20 +197,24 @@ async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Dep
     # get event ID from cache
     event_id = redis.get(f"mfa:{user.email}")
 
-    verify_evt = RequestMFAVerify(
-        event_id=event_id,
-        user_id=user.id,
-        email=user.email,
-        device_id=data.device_id,
-        user_agent=user_agent,
-        ip_address=ip,
-        otp=data.otp
-    )
-    print(">Requesting MFA verification from MFA Handler.")
-    mfa_r = await mfa_client.post(
-    "/mfa/verify",
-    json=verify_evt.model_dump(mode="json")
-    )
+    try:
+        verify_evt = RequestMFAVerify(
+            event_id=event_id,
+            user_id=user.id,
+            email=user.email,
+            device_id=data.device_id,
+            user_agent=user_agent,
+            ip_address=ip,
+            otp=data.otp
+        )
+        print(">Requesting MFA verification from MFA Handler.")
+
+        mfa_r = await mfa_client.post(
+        "/mfa/verify",
+        json=verify_evt.model_dump(mode="json")
+        )
+    except:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid request - no existing OTP found for user.")
 
     if mfa_r.status_code == 401:
         raise HTTPException(401, "Invalid code or different device ID. Please try again using the same device as the requesting device.")

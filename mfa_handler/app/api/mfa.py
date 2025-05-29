@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,8 @@ from app.utils.events import publish_mfa_completed
 from app.core.mfa_logic import send_otp, verify_otp, is_trusted, set_trusted
 
 router = APIRouter()
-# RISK_THRESHOLD = 50 # risk score threshold for MFA trigger
-RISK_THRESHOLD = 0 # we testin
+RISK_THRESHOLD = 50 # risk score threshold for MFA trigger
+# RISK_THRESHOLD = 0 # we testin
 
 @router.post("/check", response_model=RespondMFACheck)
 async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db)):
@@ -73,8 +74,8 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
     elif stored["otp"] != data.otp or stored["device_id"] != data.device_id: # or works like and/or in python
         publish_mfa_completed(evt)
         raise HTTPException(status_code=401, detail="Unauthorized: OTP mismatch." if stored["otp"] != data.otp else "Unauthorized: device fingerprint mismatch.")
-    elif stored["event_id"] != data.event_id: 
-        print(">Event ID mismatch: internal bug.")
+    elif UUID(stored["event_id"]) != data.event_id:
+        print(f">Event ID mismatch: STORED {stored["event_id"]} vs. RECEIVED {data.event_id}")
     
     # else (all matching)
     evt.was_successful = True

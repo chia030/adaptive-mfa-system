@@ -24,7 +24,8 @@ setup(
         "setuptools>=78.1.0",
         "sqlalchemy>=2.0.41",
         "asyncpg>=0.30.0",
-        "email_validator>=2.2.0"
+        "email_validator>=2.2.0",
+        "httpx>=0.28.1"
     ],
     python_requires=">=3.10",
 )
