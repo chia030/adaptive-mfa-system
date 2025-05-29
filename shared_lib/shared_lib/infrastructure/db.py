@@ -1,4 +1,5 @@
 # === DB session maker ===
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from shared_lib.config.settings import settings
@@ -41,22 +42,15 @@ async def get_mfa_db():
         yield session
 
 async def init_auth_tables(auth_models: declarative_base):
-    # try:
-        async with auth_engine.begin() as conn:
-            await conn.run_sync(auth_models.metadata.create_all) # create all tables in the auth db (idempotent, only creates tables if they don't exist)
-    # except Exception as e:
-        # print(e)
+    async with auth_engine.begin() as conn:
+        await conn.run_sync(auth_models.metadata.create_all) # create all tables in the auth db (idempotent, only creates tables if they don't exist)
 
 async def init_risk_tables(risk_models: declarative_base):
-    # try:
-        async with risk_engine.begin() as conn:
-            await conn.run_sync(risk_models.metadata.create_all)  # create all tables in the risk db (idempotent, only creates tables if they don't exist)
-    # except Exception as e:
-    #     print(e)
+    async with risk_engine.begin() as conn:
+        await conn.run_sync(risk_models.metadata.create_all)  # create all tables in the risk db (idempotent, only creates tables if they don't exist)
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
+        await conn.commit()
 
 async def init_mfa_tables(mfa_models: declarative_base):
-    # try:
-        async with mfa_engine.begin() as conn:
-            await conn.run_sync(mfa_models.metadata.create_all)  # create all tables in the mfa db (idempotent, only creates tables if they don't exist)
-    # except Exception as e:
-    #     print(e)
+    async with mfa_engine.begin() as conn:
+        await conn.run_sync(mfa_models.metadata.create_all)  # create all tables in the mfa db (idempotent, only creates tables if they don't exist)

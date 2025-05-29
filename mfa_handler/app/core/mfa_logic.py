@@ -10,7 +10,6 @@ from app.utils.email import send_otp_email
 
 redis = get_mfa_redis()
 
-RISK_THRESHOLD = 50 # risk score threshold for MFA trigger
 OTP_EXPIRE_SECONDS = 300 # 5 minutes
 
 def generate_otp():
@@ -106,7 +105,7 @@ async def verify_otp(db: AsyncSession, email, otp, event_id):
     otp_status = "verified"
     error_message = None
 
-    print(f"cache store:{cached}")
+    # print(f"cache store:{cached}")
     # print(f"stored otp: {stored.get("otp")}")
     # print(f"stored otp type: {type(stored.get("otp"))}")
 
@@ -117,10 +116,9 @@ async def verify_otp(db: AsyncSession, email, otp, event_id):
         error_message = "Unable to verify OTP: OTP not found in cache, could be expired"
     else:
         stored = json.loads(cached)
-        print(f"stored otp: {stored.get("otp")}")
-        print(f"stored otp type: {type(stored.get("otp"))}")
+        print(f">Cached otp: {stored.get("otp")}")
         # wrong OTP
-        if stored.get("otp") != otp:
+        if stored["otp"] != otp:
             print(f">OTP for {email} and {event_id=} invalid.")
             otp_status = "invalid"
             error_message = "Unable to verify OTP: OTP is invalid"

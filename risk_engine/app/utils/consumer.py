@@ -1,6 +1,4 @@
 import asyncio
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from shared_lib.infrastructure.db import get_risk_db
 from shared_lib.infrastructure.db import RiskSessionLocal
 from shared_lib.schemas.events import LoginAttempted, RiskScored
 from shared_lib.infrastructure.broker import RabbitBroker
@@ -17,8 +15,6 @@ async def handle_login_attempted(chan, method, props, body):
 
     json_str = body.decode("utf-8") # not needed me thinks
     evt = LoginAttempted.model_validate_json(json_str)
-
-    # db = get_risk_db()
     try:
         async with RiskSessionLocal() as db:
             # compute risk
@@ -27,7 +23,6 @@ async def handle_login_attempted(chan, method, props, body):
             # persist login event
             event_logged, login_attempt = await persist_login_attempt(db=db, evt=evt, score=score)
             risk_scored = RiskScored.from_orm(login_attempt)
-            # print(f"RiskScored: {risk_scored}")
             # publish scored event
             publish_risk_scored(data=risk_scored)
     except Exception as e:

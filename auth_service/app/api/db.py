@@ -6,8 +6,8 @@ from sqlalchemy import select, delete
 from uuid import UUID
 
 from shared_lib.infrastructure.db import get_auth_db
+from shared_lib.infrastructure.clients import get_mfa_client
 from app.db.models import User
-from app.utils.clients import get_mfa_client
 
 router = APIRouter()
 

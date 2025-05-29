@@ -24,7 +24,7 @@ async def get_geolocation(ip_address: str) -> dict:
          > ^ <
         """)
         print("\n\n")
-        return {"country_name": "Unknown", "city": "Unknown", "region": "Unknown"} # not to waste (limited) ipapi calls
+        return {"country_name": "Local", "city": "Local", "region": "Local"} # not to waste (limited) ipapi calls
     elif cached:
         print(">Geolocation found in cache:", cached)
         geoloc = json.loads(cached) # converts the value string from Redis (formatted in JSON) into a py dictionary

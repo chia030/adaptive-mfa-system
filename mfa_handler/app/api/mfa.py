@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,8 +74,8 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
     elif stored["otp"] != data.otp or stored["device_id"] != data.device_id: # or works like and/or in python
         publish_mfa_completed(evt)
         raise HTTPException(status_code=401, detail="Unauthorized: OTP mismatch." if stored["otp"] != data.otp else "Unauthorized: device fingerprint mismatch.")
-    elif stored["event_id"] != data.event_id: 
-        print(">Event ID mismatch: internal bug.")
+    elif UUID(stored["event_id"]) != data.event_id:
+        print(f">Event ID mismatch: STORED {stored["event_id"]} vs. RECEIVED {data.event_id}")
     
     # else (all matching)
     evt.was_successful = True
