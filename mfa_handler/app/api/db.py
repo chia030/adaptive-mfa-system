@@ -74,3 +74,9 @@ async def get_event_otp_logs(event_id: UUID, db: AsyncSession = Depends(get_mfa_
         status_code=200,
         content=payload
     )
+
+@router.delete("/otp-logs/{email}")
+async def delete_emails_otp_logs(email: str, db: AsyncSession = Depends(get_mfa_db)):
+    result = await db.execute(delete(OTPLog).where(OTPLog.email == email))
+    await db.commit()
+    return {"message": f"Deleted {result.rowcount} OTP Logs for {email}."}

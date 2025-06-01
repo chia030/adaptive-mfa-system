@@ -299,11 +299,21 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
     # TODO: validate current user (with get_current_user())
 
     # delete user trusted devices
-    mfa_r = await mfa_client.delete(
+    mfa_trusted_r = await mfa_client.delete(
         f"/trusted/{user.id}"
     )
-    print(mfa_r)
-    print(mfa_r.json())
+    print(mfa_trusted_r)
+    print(mfa_trusted_r.json())
+
+    # delete user otp logs
+    mfa_logs_r = await mfa_client.delete(
+        f"/otp-logs/{user.email}"
+    )
+    print(mfa_logs_r)
+    print(mfa_logs_r.json())
+
+    # keeping LoginAttempts to train the model
+
     # delete user
     result = await db.execute(delete(User).where(User.email == email))
     await db.commit()
