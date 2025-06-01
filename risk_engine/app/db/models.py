@@ -21,7 +21,7 @@ class LoginAttempt(Base):
     country = Column(String, nullable=True) # geolocation data from ipapi.co
     region = Column(String, nullable=True) # geolocation data from ipapi.co
     city = Column(String, nullable=True) # geolocation data from ipapi.co
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now)
     was_successful = Column(Boolean)
     risk_score = Column(Integer, nullable = True)
 

@@ -69,7 +69,7 @@ async def login_user(
     # gather login attempt data 
     ip = x_forwarded_for or request.client.host # x_forwarded_for for testing (manual headers input)
     user_agent = request.headers.get("user-agent")
-    login_attempt_time = datetime.utcnow()
+    login_attempt_time = datetime.now()
     geoloc: dict = await get_geolocation(ip)  # geolocation data from ipapi.co
 
     # init event
@@ -246,7 +246,7 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
         exp_timestamp = payload.get("exp")
         if exp_timestamp is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing expiration information")
-        now_timestamp = datetime.utcnow().timestamp()
+        now_timestamp = datetime.now().timestamp()
         expires_in = exp_timestamp - now_timestamp
         if expires_in <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Token is already expired")

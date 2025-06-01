@@ -9,8 +9,8 @@ JWT_SECRET_KEY = settings.jwt_secret_key
 JWT_ALGORITHM = settings.jwt_algorithm
 
 def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
-    to_encode = {"sub": subject, "iat": datetime.utcnow()}
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=60)) # set exp time (default = 1h)
+    to_encode = {"sub": subject, "iat": datetime.now()}
+    expire = datetime.now() + (expires_delta or timedelta(minutes=60)) # set exp time (default = 1h)
     to_encode.update({"exp": expire}) # add exp to token payload
     return jwt.encode(
         to_encode,

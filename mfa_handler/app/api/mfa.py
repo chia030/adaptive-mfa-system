@@ -64,7 +64,7 @@ async def mfa_verify(data: RequestMFAVerify, db: AsyncSession = Depends(get_mfa_
     
     evt = MFACompleted(
         **data.model_dump(),
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now().isoformat(),
         was_successful=False
     )
 

@@ -31,7 +31,7 @@ async def is_trusted(db: AsyncSession, user_id, device_id):
                 and_(
                     TrustedDevice.user_id == user_id,
                     TrustedDevice.device_id == device_id,
-                    TrustedDevice.expires_at > datetime.utcnow()
+                    TrustedDevice.expires_at > datetime.now()
                 )
             )
         )
@@ -41,7 +41,7 @@ async def is_trusted(db: AsyncSession, user_id, device_id):
         if trusted_device:
             print(">Device found in DB. Caching...")
             is_trusted_device = True
-            seconds_until_exp = int((trusted_device.expires_at - datetime.utcnow()).total_seconds()) # cache only for the remaining time until expiration
+            seconds_until_exp = int((trusted_device.expires_at - datetime.now()).total_seconds()) # cache only for the remaining time until expiration
             redis.setex(cache_key, seconds_until_exp, "true")
     print(f">Device not trusted.") if not is_trusted_device else print(f">Device trusted OK.")
     return is_trusted_device
@@ -54,7 +54,7 @@ async def set_trusted(db: AsyncSession, user_id, device_id, user_agent, ip_addre
         device_id=device_id,
         user_agent=user_agent,
         ip_address=ip_address,
-        expires_at=datetime.utcnow() + timedelta(days=30) # trusted device expires after 30 days
+        expires_at=datetime.now() + timedelta(days=30) # trusted device expires after 30 days
     )
     print(">Storing trusted device in DB. Data:", trusted_device)
     db.add(trusted_device)
@@ -90,7 +90,7 @@ async def send_otp(db: AsyncSession, email, event_id = None, device_id = None): 
         email=email,
         status=send_status,
         error=error_message,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now()
     )
 
     print(">Logging OTP request in DB. Data:", otp_log)
@@ -129,7 +129,7 @@ async def verify_otp(db: AsyncSession, email, otp, event_id):
         email=email,
         status=otp_status,
         error=error_message,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now()
     )
 
     print(">Logging OTP request in DB. Data:", otp_log)

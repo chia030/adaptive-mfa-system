@@ -36,10 +36,10 @@ async def predict_risk(data: LoginAttempted, db: AsyncSession = Depends(get_risk
     evt = RiskScored(
         **data.model_dump(exclude={"timestamp"}),
         risk_score=score,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now().isoformat(),
     )
     
-    # evt.timestamp = datetime.utcnow().isoformat()
+    # evt.timestamp = datetime.now().isoformat()
 
     publish_risk_scored(data=evt)
 

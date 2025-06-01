@@ -16,7 +16,7 @@ class TrustedDevice(Base):
     device_id = Column(String, nullable=False)
     user_agent = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.now)
     expires_at = Column(DateTime, nullable=False)
 
     def __str__(self):
@@ -29,7 +29,7 @@ class OTPLog(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_id = Column(UUID(as_uuid=True), unique=False, nullable=False)
     email = Column(String, nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.now)
     status = Column(String, default="requested") # requested/sent/failed/verified
     error = Column(String, nullable=True) # log error messages
 
