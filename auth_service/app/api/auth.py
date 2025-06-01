@@ -50,7 +50,6 @@ async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     # if add_new_user(new_user) is None:
     #     raise HTTPException(status_code=500, detail="Failed to register user")
     print(f">Registering new user: {data.email} with SRP.")
-    print(">New user data:", new_user)
     await add_new_user(new_user, db)
 
     return {"message":"User registered successfully (with SRP)"}
