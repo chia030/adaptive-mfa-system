@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, model_validator
 
 # API Models
 class RegisterIn(BaseModel):
@@ -10,11 +10,11 @@ class ChangePasswordIn(BaseModel):
     new_password: str
     confirm_password: str
 
-    @field_validator("confirm_password")
-    def passwords_match(cls, v, values):
-        if "new_password" in values and v != values["new password"]:
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.new_password != self.confirm_password:
             raise ValueError("Passwords do not match")
-        return v
+        return self
 
 class MFAVerifyIn(BaseModel):
     email: EmailStr
