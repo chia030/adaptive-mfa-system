@@ -11,7 +11,6 @@ done
 python /risk_engine/app/db/create_tables.py
 
 # 3) Run tests
-
 cd /risk_engine/
 pytest -vv -s # verbose and including all print statements
 
