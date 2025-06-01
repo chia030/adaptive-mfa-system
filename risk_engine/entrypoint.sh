@@ -10,5 +10,17 @@ done
 # 2) Create tables (idempotent)
 python /risk_engine/app/db/create_tables.py
 
-# 3) Start the service
+# 3) Run tests
+
+cd /risk_engine/
+pytest -vv -s # verbose and including all print statements
+
+echo "Running test suite..."
+pytest --maxfail=1 --disable-warnings -q || {
+  echo "Tests failed; exiting."
+  exit 1
+}
+echo "Tests passed; starting application..."
+
+# 4) Start the service
 exec uvicorn app.main:app --host 0.0.0.0 --port 8001

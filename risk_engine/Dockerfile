@@ -8,10 +8,13 @@ COPY risk_engine/ ./risk_engine/
 COPY risk_engine/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# WORKDIR /risk_engine/app/db
-# RUN python create_tables.py
+# install test dependencies
+RUN pip install --no-cache-dir pytest pytest-asyncio faker aiosqlite
 
 WORKDIR /risk_engine
-# CMD ["uvicorn","app.main:app","--host","0.0.0.0","--port","8001"]
+
 RUN chmod +x entrypoint.sh
-CMD ["./entrypoint.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
+
+# default command to launch uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

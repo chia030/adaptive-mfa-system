@@ -48,7 +48,7 @@ async def init_auth_tables(auth_models: declarative_base):
 async def init_risk_tables(risk_models: declarative_base):
     async with risk_engine.begin() as conn:
         await conn.run_sync(risk_models.metadata.create_all)  # create all tables in the risk db (idempotent, only creates tables if they don't exist)
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
+        # await conn.execute(text("CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;"))
         await conn.commit()
 
 async def init_mfa_tables(mfa_models: declarative_base):
