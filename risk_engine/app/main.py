@@ -21,15 +21,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Risk Engine", lifespan=lifespan)
 
 allowed_origins = [
-    "http://localhost:8080",  # Svelte frontend runs on :8080
+    # "http://localhost:8080",  # Svelte frontend runs on :8080 | should not be accessed from the front-end
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=False, # MFA decisions don't require cookies in browser
-    # allow_methods=["POST"],
-    allow_methods=["*"],
+    allow_methods=["POST"],
     allow_headers=["*"]
 )
 
@@ -39,3 +38,7 @@ app.include_router(risk_db_router, tags=["DB"])
 @app.get("/")
 def root():
     return {"message": "♥ Risk Engine running ♥ Check http://127.0.0.1:8001/docs or http://127.0.0.1:8001/redoc for endpoints."}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
