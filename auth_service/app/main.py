@@ -1,4 +1,5 @@
 import threading
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.auth import router as auth_router
 from app.api.db import router as auth_db_router
+
 # from auth_service.app.utils.consumer import start_mfa_consumer
 # == CONSUMER
 # @asynccontextmanager
@@ -17,6 +19,7 @@ from app.api.db import router as auth_db_router
 #     RabbitBroker.stop()
 # app = FastAPI(title="Auth Service", lifespan=lifespan)
 # ==
+
 
 app = FastAPI(title="Auth Service")
 
@@ -37,6 +40,11 @@ app.include_router(auth_router, prefix="/auth", tags=["AUTH"]) # AUTH
 app.include_router(auth_db_router, tags=["DB"])
 # tags help documentation (Swagger)
 
+
 @app.get("/")
 def root(): 
     return {"message": "♥ Auth Service running ♥ Check http://127.0.0.1:8000/docs or http://127.0.0.1:8000/redoc for endpoints."}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}

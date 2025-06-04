@@ -1,9 +1,9 @@
-import threading
-from contextlib import asynccontextmanager
+# import threading
+# from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 # from shared_lib.config.settings import settings
-from shared_lib.infrastructure.broker import RabbitBroker
+# from shared_lib.infrastructure.broker import RabbitBroker
 from app.api.mfa import router as mfa_router
 from app.api.db import router as mfa_db_router
 # from mfa_handler.app.utils.consumer import start_risk_consumer
@@ -22,15 +22,14 @@ from app.api.db import router as mfa_db_router
 app = FastAPI(title="MFA Handler")
 
 allowed_origins = [
-    "http://localhost:8080",  # Svelte frontend runs on :8080
+    # "http://localhost:8080",  # Svelte frontend runs on :8080 | should not be accessed from the front-end
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,  # List of allowed (browser) origins
     allow_credentials=True,
-    # allow_methods=["POST"], # Allow POST only
-    allow_methods=["*"],
+    allow_methods=["POST"], # Allow POST only
     allow_headers=["*"], # Allow all headers
 )
 
@@ -41,3 +40,7 @@ app.include_router(mfa_db_router, tags=["DB"])
 @app.get("/")
 def root():
     return {"message": "♥ MFA Handler running ♥ Check http://127.0.0.1:8002/docs or http://127.0.0.1:8002/redoc for endpoints."}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
