@@ -16,7 +16,7 @@ from shared_lib.infrastructure.db import get_auth_db
 from shared_lib.infrastructure.cache import get_auth_redis
 from shared_lib.infrastructure.clients import get_risk_client, get_mfa_client
 from app.db.models import User
-from app.utils.schemas import RegisterIn, ChangePasswordIn, MFAVerifyIn
+from app.utils.schemas import RegisterIn, RegisterOut, LoginOut, LoginOutMFA, LogoutOut, ChangePasswordIn, ChangePasswordOut, MFAVerifyIn, MFAVerifyOut, DeleteUserOut, CurrentUserOut
 from app.utils.geolocation import get_geolocation
 from app.core.auth_logic import get_current_user, get_user_by_email, add_new_user
 from app.utils.events import publish_login_event
@@ -26,22 +26,35 @@ srp.rfc5054_enable()
 # new APIRouter instance for authentication
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
 
 # redis
 redis = get_auth_redis()
 
 # POST /register => register a new user ======================================================================================
-@router.post("/register")
+@router.post(
+        "/register",
+        summary="Create a new user",
+        response_model=RegisterOut,
+        status_code=201,
+        responses={
+            201: {"description": "User created successfully"},
+            400: {"description": "Email already exists"}
+        }
+)
 async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     # check if user already exists
+    print(f">Checking for user {data.email} in database.")
     user = await get_user_by_email(data.email, db)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    print(">Hashing password...")    
     # password hashed using the CryptContext instance
     hashed_password = pwd_context.hash(data.password)
 
+    print(">Generating SRP salt and verifier for password...") 
     # SRP salt & verifier
     salt_bytes, verifier_bytes = srp.create_salted_verification_key(data.email, data.password, hash_alg=srp.SHA256, ng_type=srp.NG_2048)
 
@@ -52,14 +65,31 @@ async def register(data: RegisterIn, db: AsyncSession = Depends(get_auth_db)):
     print(f">Registering new user: {data.email} with SRP.")
     await add_new_user(new_user, db)
 
-    return {"message":"User registered successfully (with SRP)"}
+    response = RegisterOut()
+
+    return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content=response.model_dump(mode="json")
+        )
 
 # POST /login => log in existing user & return token =========================================================================
-@router.post("/login")
+@router.post(
+        "/login",
+        summary="Log in existing user",
+        response_model=LoginOut,
+        responses={
+            202: {
+                "description": "Login successful but MFA is required",
+                "model": LoginOutMFA
+            },
+            401: {"description": "Invalid credentials"},
+            502: {"description": "Risk Engine or MFA Handler services are not available or threw an error"}
+        }
+)
 async def login_user(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
-    device_id: str = Body(...), # device ID collected from client
+    device_id: str = Body(default="dev-xyz"), # device ID collected from client
     x_forwarded_for: str = Header(default=None), # for manual testing
     db: AsyncSession = Depends(get_auth_db), # DB session
     risk_client = Depends(get_risk_client),
@@ -160,9 +190,10 @@ async def login_user(
         print(">MFA Required, storing event ID in cache for 5 minutes.")
         # cache event ID
         redis.setex(f"mfa:{user.email}", 300, str(event_id)) # store event ID in cache for 5 minutes
+        response = LoginOutMFA(mfa_required=True)
         return JSONResponse(
             status_code=202,
-            content={"mfa_required": True, "message": "MFA Required; OTP sent via email. Complete authentication at /auth/verify-otp."}
+            content=response.model_dump(mode="json")
         )
     elif mfa_r.status_code != 200:
         raise HTTPException(status_code=502, detail="MFA Handler error.")
@@ -179,10 +210,25 @@ async def login_user(
     print(">MFA not required, creating access token for user.")
     token = create_access_token(subject=user.email) # create JWT token
 
-    return {"mfa_required": False, "message":"Logged in successfully.", "access_token": token, "token_type": "bearer"}
+    response = LoginOut(mfa_required=False, access_token=token)
+
+    return JSONResponse(
+        status_code=200,
+        content=response.model_dump(mode="json")
+    )
 
 # POST /verify_otp => request MFA verification from MFA Handler ===============================================================
-@router.post("/verify-otp") # sync call to MFA Handler
+@router.post(
+        "/verify-otp",
+        summary="Verify OTP for user login",
+        response_model=MFAVerifyOut,
+        responses={
+            400: {"description": "Invalid request: no MFA verification was requested for user or OTP expired"},
+            401: {"description": "Invalid OTP or different device_id from requesting device"},
+            404: {"description": "User not found"},
+            502: {"description": "MFA Handler service is not available or threw an error"}
+        }
+) # sync call to MFA Handler
 async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Depends(get_auth_db), mfa_client = Depends(get_mfa_client)):
 
     print(f">Checking for user {data.email} in database.")
@@ -223,25 +269,32 @@ async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Dep
     mfa_response = mfa_r.json()
     
     print(">Response from MFA Handler:", f"'{mfa_response.get("message")}'", mfa_r.status_code)
-    # device_saved = mfa_r.content["device_saved"] 
     device_saved = mfa_response.get("device_saved", False)  # default to False if not present
     print(f">Trusted device was saved: {device_saved}.")
     token = create_access_token(subject=user.email)
+    response = MFAVerifyOut(message=f"MFA verified successfully. User logged in. Device saved: {device_saved}", access_token=token)
     return JSONResponse(
         status_code=200,
-        content={
-            "message": f"MFA verified successfully. User logged in. Device saved: {device_saved}",
-            "access_token": token,
-            "token_type": "bearer"
-        }
+        content=response.model_dump(mode="json")
     )
 
 # POST /logout => log out logged in user ======================================================================================
-@router.post("/logout")
+@router.post(
+        "/logout",
+        summary="Log out user (blacklist a valid JWT token in cache)",
+        response_model=LogoutOut,
+        responses={
+            400: {"description": "Token already expired"},
+            401: {"description": "Token missing expiration info or invalid"}
+        }
+)
 async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklisted in Redis at logout
     # decode token to get expiration time
+    print(">Decoding user's JWT token...")
+    email = None
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        email = payload.get("sub")
         exp_timestamp = payload.get("exp")
         if exp_timestamp is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing expiration information")
@@ -252,28 +305,44 @@ async def logout_user(token: str = Depends(oauth2_scheme)): # token is blacklist
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     
+    print(">Token valid; blacklisting in cache...")
     # use token itself as key
     blacklist_key = f"bl:{token}" # prefix bl: for blacklist
-    await redis.setex(blacklist_key, int(expires_in), "blacklisted") # store blacklisted token in cache
-
-    return {"message":"Logged out successfully."}
+    redis.setex(blacklist_key, int(expires_in), "blacklisted") # store blacklisted token in cache
+    response = LogoutOut(message=f"Logged out {email} successfully.")
+    return JSONResponse(
+        status_code=200,
+        content=response.model_dump(mode="json")
+    )
 
 # POST /change-password => change password for existing user ===================================================================
-@router.post("/change-password")
+@router.post(
+        "/change-password",
+        summary="Change password for user",
+        response_model=ChangePasswordOut,
+        responses={
+            400: {"description": "New Password and Confirm Password do not match"},
+            404: {"description": "User email not found"}
+        }
+)
 async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depends(get_auth_db)): # NOT SECURE as is :)
     # lookup user
+    print(f">Checking for user {data.email} in database.")
     user = await get_user_by_email(data.email, db)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {data.email} not found.")
     
-    # TODO: validate current user (with get_current_user())
-
+    # TODO: validate user via OTP first
+    
+    print(">Hashing password...")    
     # password hashed using the CryptContext instance
     hashed_password = pwd_context.hash(data.new_password)
 
+    print(">Generating SRP salt and verifier for password...") 
     # generate new salt & verifier
     salt_bytes, verifier_bytes = srp.create_salted_verification_key(data.email, data.new_password, hash_alg=srp.SHA256, ng_type=srp.NG_2048)
 
+    print(">Storing new password...")
     # change password
     statement = (
         update(User)
@@ -285,18 +354,32 @@ async def change_user_password(data: ChangePasswordIn, db: AsyncSession = Depend
 
     # publish audit event?
 
-    return {"message":f"Password changed for {data.email}."}
+    response = ChangePasswordOut(message=f"Password changed for {data.email}.")
+
+    return JSONResponse(
+        status_code=200,
+        content=response.model_dump(mode="json")
+    )
 
 # DELETE /users/{user_email} => delete existing user ==========================================================================
-@router.delete("/users/{email}")
+@router.delete(
+        "/users/{email}",
+        summary="Delete user account",
+        response_model=DeleteUserOut,
+        responses={
+            404: {"description": "User email not found"}
+        }
+)
 async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_client = Depends(get_mfa_client)): # NOT SECURE as is :)
     # lookup user
+    print(f">Checking for user {email} in database.")
     user = await get_user_by_email(email, db)
     if not user: # 404 if not found
         raise HTTPException(status_code=404, detail=f"User with {email} not found.")
     
     # TODO: validate current user (with get_current_user())
 
+    print(">Deleting user's trusted devices...")
     # delete user trusted devices
     mfa_trusted_r = await mfa_client.delete(
         f"/trusted/{user.id}"
@@ -304,6 +387,7 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
     print(mfa_trusted_r)
     print(mfa_trusted_r.json())
 
+    print(">Deleting user's OTP Logs...")
     # delete user otp logs
     mfa_logs_r = await mfa_client.delete(
         f"/otp-logs/{user.email}"
@@ -312,18 +396,30 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
     print(mfa_logs_r.json())
 
     # keeping LoginAttempts to train the model
-
+    print(">Deleting user...")
     # delete user
     result = await db.execute(delete(User).where(User.email == email))
     await db.commit()
-    # TODO: delete all entries with user ID in Risk Engine & MFA Handler
-    return {"message": f"Deleted {result.rowcount} users."}
+    
+    response = DeleteUserOut(message=f"Deleted {result.rowcount} user with email: {email}.")
+    return JSONResponse(
+        status_code=200,
+        content=response.model_dump(mode="json")
+    )
 
 # GET /current-user => return current active user ==============================================================================
-@router.get("/current-user")
+@router.get(
+        "/current-user",
+        summary="Get logged in user (from JWT token)",
+        response_model=CurrentUserOut,
+        responses={
+            401: {"description": "Token has been revoked/Credentials invalid/Token Invalid"},
+            404: {"description": "User not found in database"}
+        }
+)
 async def read_current_user(current_user: User = Depends(get_current_user)):
-    return {
-        "email": current_user.email,
-        "id": str(current_user.id),
-        "created_at": current_user.created_at
-    }
+    response = CurrentUserOut(email=current_user.email, id=current_user.id, created_at=current_user.created_at)
+    return JSONResponse(
+        status_code=200,
+        content=response.model_dump(mode="json")
+    )
