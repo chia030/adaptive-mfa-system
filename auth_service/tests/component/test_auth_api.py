@@ -157,7 +157,7 @@ async def test_register(dummy_user, test_auth_client):
             "/auth/register",
             json=request_data.model_dump(mode="json")
         )
-        assert resp_register.status_code == 200
+        assert resp_register.status_code == 201
 
 
 @pytest.mark.asyncio(loop_scope="function")

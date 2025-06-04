@@ -8,13 +8,13 @@ from shared_lib.infrastructure.cache import get_auth_redis
 from shared_lib.config.settings import settings
 from app.db.models import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 redis = get_auth_redis()
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_auth_db)):
     # check if token is blacklisted
     blacklist_key = f"bl:{token}"
-    blacklisted = await redis.get(blacklist_key)
+    blacklisted = redis.get(blacklist_key)
     if blacklisted:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has been revoked")
     
@@ -29,7 +29,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
         if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     
