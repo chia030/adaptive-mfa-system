@@ -17,7 +17,7 @@ async def engine():
     from sqlalchemy.ext.asyncio import create_async_engine
     from app.db.models import Base
     # make test database
-    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:?cache=shared"
+    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True, connect_args={"uri": True} if "sqlite" in TEST_DATABASE_URL else {})
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

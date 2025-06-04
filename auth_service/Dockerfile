@@ -8,6 +8,9 @@ COPY auth_service/ ./auth_service/
 COPY auth_service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# install test dependencies
+RUN pip install --no-cache-dir pytest pytest-asyncio faker aiosqlite
+
 # WORKDIR /auth_service/app/db
 # RUN python create_tables.py
 
