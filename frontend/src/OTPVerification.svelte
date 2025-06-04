@@ -1,17 +1,19 @@
 <script>
     import { createEventDispatcher } from 'svelte';
-    let otp = "";
+
     const dispatch = createEventDispatcher();
+
+    let otp = "";
   
-    function handleSubmit(event) {
+    async function handleSubmit(event) {
       event.preventDefault();
-      // Dispatch a 'verify' event with the OTP value
-      dispatch('verify', otp);
+      // Dispatch a 'verify' event with OTP value
+      dispatch('verify', otp)
     }
   </script>
-  
+
   <form on:submit={handleSubmit}>
-    <input type="text" bind:value={otp} placeholder="Enter OTP" required />
+    <input id="otp" type="text" name="otp" bind:value={otp} placeholder="Enter OTP (check your email)" required />
     <button type="submit">Verify OTP</button>
   </form>
   

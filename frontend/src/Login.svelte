@@ -1,4 +1,3 @@
-<!-- src/Login.svelte -->
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   import FingerprintJS from '@fingerprintjs/fingerprintjs';
@@ -44,24 +43,22 @@
     formData.append('device_id', fingerprint);
 
     try {
-      // POST to backend API
-      const response = await fetch('http://localhost:8000/better-login', {
+      // POST to backend Auth Service API
+      const response = await fetch('http://localhost:8000/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData.toString()
       });
 
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok) { // 202 is considered "ok"
         // check if MFA required
-        if (data.message && data.message.includes("MFA required")) {
+        if (data.message && data.message.includes("MFA Required")) {
           authenticated = true;
           mfaRequired = true;
           availableMFAMethods = data.availableMFAMethods || [
-            { id: 'sms', name: 'SMS OTP' },
             { id: 'email', name: 'Email OTP' }
           ];
-          
         } else {
           // MFA not required
           authenticated = true;
@@ -71,7 +68,6 @@
           token = data.access_token;
           successMessage = 'Login successful! Token: ' + token;
           errorMessage = '';
-
         }
       } else {
         errorMessage = data.detail || "Login failed.";
@@ -151,15 +147,3 @@
     <div class="message success">{successMessage}</div>
   {/if}
 </div>
-
-<!-- <form on:submit={handleSubmit}>
-  <div>
-    <label for="username">Email:</label>
-    <input id="username" type="text" bind:value={username} required />
-  </div>
-  <div>
-    <label for="password">Password:</label>
-    <input id="password" type="password" bind:value={password} required />
-  </div>
-  <button type="submit">Login</button>
-</form> -->

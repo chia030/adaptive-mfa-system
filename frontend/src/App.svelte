@@ -4,14 +4,13 @@
 	import OTPVerification from './OTPVerification.svelte';
 
 	//TODO: add logout
-	//TODO: fix - very messy ew
 	
 	let isAuthenticated = false;
 	let isMfaRequired = false;
 	let isMfaPassed = false;
 	let thisAvailableMFAMethods = [];
 	
-	let token = "";
+	let accessToken = "";
   	let userEmail = "";
 	let fingerprint = "";
 	
@@ -24,27 +23,25 @@
 		isAuthenticated = authenticated;
 		isMfaRequired = mfaRequired;
 		isMfaPassed = mfaPassed;
-		thisAvailableMFAMethods = availableMFAMethods || [ { id: 'sms', name: 'SMS OTP' }, { id: 'email', name: 'Email OTP' } ];
-
+		accessToken = token;
+		thisAvailableMFAMethods = availableMFAMethods || [ { id: 'email', name: 'Email OTP' } ];
 	}
 	
-	// Simulate an MFA selection handling
+	// simulate MFA selection handling
 	function handleSelectMethod(event) {
-		// log choice but only email is available in backend so that will be it
 		console.log("MFA method selected:", event.detail);
-	  // For demo purposes, assume MFA is successfully completed
-	//   isMfaPassed = true;
 	}
 
 	async function handleMfaVerification({detail: otp}) {
 		try {
-			const response = await fetch('http://localhost:8000/mfa/verify-otp', {
+			// POST to backend Auth Service API
+			const response = await fetch('http://localhost:8000/auth/verify-otp', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					email: userEmail,
-					otp: otp,
-					device_id: fingerprint
+					device_id: fingerprint,
+					otp: otp
 				})
 			});
 			const data = await response.json();
@@ -68,9 +65,9 @@
 		<MFASelection methods={thisAvailableMFAMethods} on:select={handleSelectMethod}/>
 		<!-- OTPVerification for entering the received OTP -->
 		<OTPVerification on:verify={handleMfaVerification} />
-	{:else}
+	{:else if !isMfaRequired || isMfaPassed }
 		<h2>Welcome, you are now securely authenticated!</h2>
-		<!-- Optionally display or store the received token -->
+		 <p>Token: {accessToken}</p>
 	{/if} 
 </main>
 
