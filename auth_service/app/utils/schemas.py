@@ -50,6 +50,9 @@ class MFAVerifyOut(BaseModel):
 
 class DeleteUserOut(BaseModel):
     message: str = "Deleted {rowcount} user with email: {email}."
+    deleted_trusted_devices: int = 1
+    deleted_otp_logs: int = 1
+    deleted_users: int = 1
 
 class CurrentUserOut(BaseModel):
     email: EmailStr = "email@email.com"

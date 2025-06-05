@@ -13,7 +13,7 @@ class TrustedDevice(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False)
-    device_id = Column(String, nullable=False)
+    device_id = Column(String, nullable=False) # should be unique
     user_agent = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.now)

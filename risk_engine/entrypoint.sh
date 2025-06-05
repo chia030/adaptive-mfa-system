@@ -12,10 +12,10 @@ python /risk_engine/app/db/create_tables.py
 
 # 3) Run tests
 cd /risk_engine/
-pytest -vv -s # verbose and including all print statements
+# pytest -vv -s # verbose and including all print statements
 
 echo "Running test suite..."
-pytest --maxfail=1 --disable-warnings -q || {
+pytest -vv -s --maxfail=1 --disable-warnings -q || {
   echo "Tests failed; exiting."
   exit 1
 }

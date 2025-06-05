@@ -385,7 +385,10 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
         f"/trusted/{user.id}"
     )
     print(mfa_trusted_r)
-    print(mfa_trusted_r.json())
+    body_mfa_trusted_r = mfa_trusted_r.json()
+    print(body_mfa_trusted_r)
+
+    deleted_trusted_devices = int(body_mfa_trusted_r.get("deleted_rows"))
 
     print(">Deleting user's OTP Logs...")
     # delete user otp logs
@@ -393,7 +396,10 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
         f"/otp-logs/{user.email}"
     )
     print(mfa_logs_r)
-    print(mfa_logs_r.json())
+    body_mfa_logs_r = mfa_logs_r.json()
+    print(body_mfa_logs_r)
+
+    deleted_otp_logs = int(body_mfa_logs_r.get("deleted_rows"))
 
     # keeping LoginAttempts to train the model
     print(">Deleting user...")
@@ -401,7 +407,12 @@ async def delete_user(email: str, db: AsyncSession = Depends(get_auth_db), mfa_c
     result = await db.execute(delete(User).where(User.email == email))
     await db.commit()
     
-    response = DeleteUserOut(message=f"Deleted {result.rowcount} user with email: {email}.")
+    response = DeleteUserOut(
+        message=f"Deleted {result.rowcount} user with email: {email}.",
+        deleted_trusted_devices=deleted_trusted_devices,
+        deleted_otp_logs=deleted_otp_logs,
+        deleted_users=int(result.rowcount)
+    )
     return JSONResponse(
         status_code=200,
         content=response.model_dump(mode="json")
