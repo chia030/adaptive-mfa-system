@@ -10,7 +10,13 @@ done
 # 2) Create tables (idempotent)
 python /risk_engine/app/db/create_tables.py
 
-# 3) Run tests
+# 3) Wait for RabbitMQ connection (TCP port check)
+until </dev/tcp/rabbitmq/4369; do 
+  echo "Waiting for RabbitMQ..."
+  sleep 1
+done
+
+# 4) Run tests
 cd /risk_engine/
 # pytest -vv -s # verbose and including all print statements
 
@@ -21,5 +27,5 @@ pytest -vv -s --maxfail=1 --disable-warnings -q || {
 }
 echo "Tests passed; starting application..."
 
-# 4) Start the service
+# 5) Start the service
 exec uvicorn app.main:app --host 0.0.0.0 --port 8001
