@@ -47,7 +47,7 @@
 			const data = await response.json();
 			if (response.ok) {
 				isMfaPassed = true;
-				token = data.access_token;
+				accessToken = data.access_token;
 			} else {
 				console.error('OTP verification failed:', data.detail);
 			}

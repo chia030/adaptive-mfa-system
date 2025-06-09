@@ -90,10 +90,10 @@ async def login_user(
     request: Request,  # request object to access client IP and user agent
     form_data: OAuth2PasswordRequestForm = Depends(), # API call dependencies
     device_id: str = Body(default="dev-xyz"), # device ID collected from client
-    x_forwarded_for: str = Header(default=None), # for manual testing
+    x_forwarded_for: str = Header(default=None), # for manual testing with different IPs
     db: AsyncSession = Depends(get_auth_db), # DB session
-    risk_client = Depends(get_risk_client),
-    mfa_client = Depends(get_mfa_client)
+    risk_client = Depends(get_risk_client), # Risk Engine client session
+    mfa_client = Depends(get_mfa_client) # MFA Handler client session
 ):
     # gather login attempt data 
     ip = x_forwarded_for or request.client.host # x_forwarded_for for testing (manual headers input)
@@ -144,7 +144,7 @@ async def login_user(
     print(">Requesting risk computation from Risk Engine.")
     print(">Sending data:", login_evt)
     
-    # call risk engine synchronously -> calculate Risk Score
+    # call risk engine -> calculate Risk Score
     risk_r = await risk_client.post(
         "/risk/predict",
         json=login_evt.model_dump(mode="json")
@@ -176,7 +176,7 @@ async def login_user(
     print(">Requesting MFA check from MFA Handler.")
     print(">Sending data:", risk_evt)
 
-    # call MFA Handler synchronously to decide/challenge
+    # call MFA Handler -> decide/challenge
     mfa_r = await mfa_client.post(
         "/mfa/check",
         json=risk_evt.model_dump(mode="json")
@@ -228,7 +228,7 @@ async def login_user(
             404: {"description": "User not found"},
             502: {"description": "MFA Handler service is not available or threw an error"}
         }
-) # sync call to MFA Handler
+) # REST call to MFA Handler
 async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Depends(get_auth_db), mfa_client = Depends(get_mfa_client)):
 
     print(f">Checking for user {data.email} in database.")
@@ -244,7 +244,7 @@ async def verify_otp(request: Request, data: MFAVerifyIn, db: AsyncSession = Dep
 
     try:
         verify_evt = RequestMFAVerify(
-            event_id=event_id,
+            event_id=event_id, # event_id would be empty if not found in cache so the request would fail immediately
             user_id=user.id,
             email=user.email,
             device_id=data.device_id,

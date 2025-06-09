@@ -290,5 +290,5 @@ async def test_calculate_score(tot_verified_list, tot_unverified_list, async_ses
     assert score3 <= 50, f">Score #3 (low risk attempt): {score3} | Expected Score: 20" # low
     assert score4 >= 50, f">Score #4 (high risk attempt): {score4} | Expected Score: 75" # high
     assert score5 >= 50, f">Score #5 (typical fraud): {score5} | Expected Score: 95" # high
-    assert score6 >= 50, f">Score #6 (5th failed attempt): {score6} | Expected Score: 100" # high
+    assert score6 >= 50, f">Score #6 (4th failed attempt): {score6} | Expected Score: 100" # high
     assert score7 >= 50, f">Score #7 (5th failed attempt): {score7} | Expected Score: 100" # high

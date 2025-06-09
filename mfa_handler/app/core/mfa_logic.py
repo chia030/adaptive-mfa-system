@@ -20,7 +20,6 @@ async def is_trusted(db: AsyncSession, user_id, device_id):
     cache_key = f"trusted:{user_id}:{device_id}"
     print(f">Checking trusted devices '{cache_key}'.")
     cached = redis.get(cache_key)
-    # if redis.get(cache_key): return True
     if cached == "true":
         print(">Device found in cache.")
         is_trusted_device = True
@@ -105,9 +104,6 @@ async def verify_otp(db: AsyncSession, email, otp, event_id):
     otp_status = "verified"
     error_message = None
 
-    # print(f"cache store:{cached}")
-    # print(f"stored otp: {stored.get("otp")}")
-    # print(f"stored otp type: {type(stored.get("otp"))}")
 
     # OTP expired or not in cache
     if not cached:

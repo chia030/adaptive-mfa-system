@@ -37,7 +37,7 @@ async def verify_success(event_id: UUID):
         return False
 
 
-# "dumb" - although a little smarter now - scoring model
+# "dumb" - although a little smarter now - scoring logic
 async def calculate_risk_score(
         db: AsyncSession,
         evt: LoginAttempted
@@ -50,7 +50,7 @@ async def calculate_risk_score(
     'was_successful', based on this logic, should really only be set to true once the whole login process is 
           completed, in case the password is hacked.
 
-    There can be 2 cases:
+    There can be 2 success cases:
         - login successful and OTP was never sent (safe login)
         - login successful and OTP was sent + verified
     """
@@ -94,9 +94,9 @@ async def calculate_risk_score(
     print(">Calculating IP risk...")
     ip_results: list [LoginAttempt] = (await db.execute(
         select(LoginAttempt).where(LoginAttempt.email == evt.email, LoginAttempt.ip_address == evt.ip_address, LoginAttempt.was_successful == True)
-    )).scalars().all()
+    )).scalars().all() # scalars converts first column value (id) into ScalarResult and first() returns the first row only, all() returns all rows
 
-    if not ip_results: # scalars converts first column value (id) into ScalarResult and first() returns the first row only
+    if not ip_results: 
         score += 30 # new IP
         print(f">New IP detected! Increasing score by 30. Current score:{score}")
     else:
@@ -202,7 +202,7 @@ async def calculate_risk_score(
     if not evt.was_successful:
         score += 15
         print(f"Unsuccessful login attempt detected! Increasing score by 15. Current score:{score}")
-        # if last 2 attempts == failure || unverified => SCORE=100 to be repeated until the users verifies account with MFA successfully.
+        # if last 3 attempts == failure || unverified => SCORE=100 to be repeated until the users verifies account with MFA successfully.
     success_results: list[LoginAttempt] = (await db.execute(
         select(LoginAttempt).where(LoginAttempt.email == evt.email).order_by(LoginAttempt.timestamp.desc()).limit(3) # order by timestamp.descending()
     )).scalars().all()

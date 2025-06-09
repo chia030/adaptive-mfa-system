@@ -1,4 +1,4 @@
-# [COMPONENT TEST] for AUTH FLOW ======================================================================================================================
+# [COMPONENT TEST] for AUTH API ======================================================================================================================
 
 import pytest, pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -155,7 +155,6 @@ async def test_register(dummy_user, test_auth_client):
         )
         assert resp_register.status_code == 201
 
-
 @pytest.mark.asyncio(loop_scope="module")
 async def test_login_success_with_MFA(dummy_user, test_auth_redis, test_auth_client, monkeypatch):
     user = dummy_user["user"]
@@ -271,7 +270,6 @@ async def test_login_fail(dummy_user, test_auth_client, monkeypatch):
 
     _app.dependency_overrides.pop(get_risk_client, None)
     _app.dependency_overrides.pop(get_mfa_client, None)
-
 
 # change password
 @pytest.mark.asyncio(loop_scope="module")

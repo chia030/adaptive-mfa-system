@@ -93,7 +93,6 @@ async def test_register(dummy_user, auth_cli):
         )
         assert resp_register.status_code == 201
 
-
 @pytest.mark.asyncio(loop_scope="module")
 async def test_login_success_with_MFA(dummy_user, auth_cli, monkeypatch):
     user = dummy_user["user"]
