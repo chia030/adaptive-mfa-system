@@ -27,7 +27,7 @@ allowed_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=False, # MFA decisions don't require cookies in browser
+    allow_credentials=False, # Risk & MFA decisions don't require cookies in browser
     allow_methods=["POST"],
     allow_headers=["*"]
 )

@@ -23,8 +23,8 @@ async def mfa_check(data: RequestMFACheck, db: AsyncSession = Depends(get_mfa_db
         user_id=data.user_id,
         device_id=data.device_id
         )
+    # if device is trusted, skip MFA
     if not is_trusted_device and data.risk_score >= RISK_THRESHOLD:
-        # if device is trusted, skip MFA
         print(f">Device unknown and risk score >=50. Sending OTP via email to '{data.email}'.")
         mfa_required = True
         email_sent = await send_otp(
